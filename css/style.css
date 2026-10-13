@@ -333,3 +333,29 @@ select { font: inherit; padding: .55rem .7rem; border-radius: var(--radius); bor
 .settings input, .settings select { width: 100%; min-width: 0; }
 .settings label, .two label { min-width: 0; }
 .hist { display: block; overflow-x: auto; }
+
+/* ---------- Prüfungs-Countdown ---------- */
+.countdown { --ph: var(--muted); background: var(--surface); border: 1px solid var(--border); border-top: 6px solid var(--ph);
+  border-radius: var(--radius); padding: 1rem; margin: 1rem 0; box-shadow: var(--shadow); }
+.countdown.ph-aufbau { --ph: #d4a000; }
+.countdown.ph-endspurt { --ph: #e86a00; }
+.countdown.ph-countdown { --ph: var(--accent); }
+.countdown.ph-final { --ph: var(--accent); background: var(--accent); color: var(--on-accent); border-color: var(--accent); animation: pulse 2s ease-in-out infinite; }
+.countdown.ph-heute, .countdown.ph-vorbei { --ph: var(--ok); text-align: center; }
+.cd-head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .3rem; font-size: .85rem; opacity: .85; }
+.cd-clock { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: .8rem 0; }
+.cd-clock div { display: flex; flex-direction: column; align-items: center; background: var(--surface-2); border-radius: var(--radius); padding: .5rem 0; }
+.cd-clock b { font-size: 2rem; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--ph); }
+.cd-clock span { font-size: .75rem; opacity: .8; }
+.ph-final .cd-clock div { background: rgba(0, 0, 0, .18); }
+.ph-final .cd-clock b { color: inherit; }
+.cd-big { font-size: 3rem; margin: .4rem 0; }
+.cd-msg { font-weight: 700; font-size: 1.05rem; margin: .4rem 0 .6rem; }
+.cd-facts { list-style: none; padding: 0; margin: 0; display: grid; gap: .3rem; font-size: .92rem; }
+.cd-facts li.behind { color: var(--no); font-weight: 600; }
+.cd-facts li.ahead { color: var(--ok); font-weight: 600; }
+.ph-final .cd-facts li.behind, .ph-final .cd-facts li.ahead, .ph-final a { color: inherit; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(227, 6, 19, .5); } 50% { box-shadow: 0 0 0 10px rgba(227, 6, 19, 0); } }
+@media (prefers-reduced-motion: reduce) { .countdown.ph-final { animation: none; } }
+label.check { display: flex; align-items: center; gap: .5rem; font-weight: 500; }
+label.check input { width: 1.2rem; height: 1.2rem; }

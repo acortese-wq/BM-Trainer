@@ -19,12 +19,6 @@
   function bar(value, color) {
     return `<div class="bar" role="progressbar" aria-valuenow="${pct(value)}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct(value)}%;background:${color || 'var(--accent)'}"></span></div>`;
   }
-  function daysUntil(dateStr) {
-    if (!dateStr) return null;
-    const d = new Date(dateStr + 'T00:00:00');
-    const t = new Date(); t.setHours(0, 0, 0, 0);
-    return Math.round((d - t) / 86400000);
-  }
   function header(title, back, color) {
     return `<div class="pagehead">${back ? `<a class="back" href="${back}" aria-label="Zurück">‹</a>` : ''}<h1 ${color ? `style="--sc:${color}"` : ''}>${title}</h1></div>`;
   }
@@ -49,7 +43,7 @@
         <p>Hier trainierst du für die Aufnahmeprüfung an die Berufsmaturität – jeden Tag ein bisschen, mit Lernkonto, Abzeichen und Beförderungen.</p>
         <form class="panel settings" id="wf">
           <label>Wie heisst du? <input id="wn" type="text" maxlength="30" autocomplete="given-name" required></label>
-          <label>Wann ist deine Aufnahmeprüfung? <input id="wd" type="date"></label>
+          <label>Wann ist deine Aufnahmeprüfung? <input id="wd" type="date" value="${BMP.motiv.examDate()}"></label>
           <label>Dein Tagesziel
             <select id="wg"><option value="10">10 Aufgaben (ca. 7 min)</option><option value="20" selected>20 Aufgaben (ca. 15 min)</option><option value="30">30 Aufgaben (ca. 20 min)</option><option value="50">50 Aufgaben (ca. 35 min)</option></select>
           </label>
@@ -97,10 +91,12 @@
     if (!st.onboarded && !st.name) return welcome();
     const M = BMP.motiv;
     const streak = store.streak();
-    const left = daysUntil(st.examDate);
     const nFehler = store.fehlerList().length;
     const today = store.todayStats();
-    const goal = st.dailyGoal || 20;
+    const goal = M.goal();
+    const ph = M.phase();
+    const plan = M.plan();
+    const lastMath = M.lastExamDays('mathe');
     const lv = M.level(st.points || 0);
     const pr = M.projection();
     const nBadges = Object.keys(st.badges).length;
@@ -111,9 +107,21 @@
         <h1>${hello}${st.name ? ' ' + h(st.name) : ''}!</h1>
         <p class="quote">«${M.quoteOfDay()}»</p>
         <div class="chips">
-          ${left != null && left >= 0 ? `<span class="chip">📅 ${left === 0 ? 'Heute ist Prüfung – viel Erfolg!' : `Noch <b>${left}</b> Tag${left === 1 ? '' : 'e'} bis zur Prüfung`}</span>` : ''}
           <span class="chip ${streak >= 3 ? 'hot' : ''}">🔥 ${streak} Tag${streak === 1 ? '' : 'e'} in Folge</span>
         </div>
+      </section>
+
+      <section class="countdown ph-${ph.id}" aria-live="off">
+        <div class="cd-head"><span>${ph.icon} Phase: <b>${ph.name}</b></span><span>Prüfung ${new Date(M.examDate() + 'T00:00:00').toLocaleDateString('de-CH', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
+        ${ph.days > 0 ? `<div class="cd-clock" id="cdclock">${cdParts()}</div>` : `<div class="cd-big">${ph.icon}</div>`}
+        <p class="cd-msg">${ph.msg}</p>
+        <ul class="cd-facts">
+          ${ph.days > 0 ? `<li>📆 noch ${ph.days >= 14 ? `<b>${Math.floor(ph.days / 7)}</b> Wochen · ` : ''}<b>${Math.max(0, ph.days - 1)}</b> Lerntag${ph.days - 1 === 1 ? '' : 'e'} bis zur Prüfung</li>` : ''}
+          ${ph.goal ? `<li>🎯 Tagesziel in dieser Phase: <b>${goal}</b> Aufgaben</li>` : ''}
+          ${plan && ph.goal ? `<li class="${plan.diff < 0 ? 'behind' : 'ahead'}">${plan.diff < 0 ? `⚠️ Rückstand: <b>${U.fmt(-plan.diff, 0)}</b> Aufgaben – hol heute auf!` : `✅ Vorsprung: <b>${U.fmt(plan.diff, 0)}</b> Aufgaben – stark!`}</li>` : ''}
+          ${ph.days > 0 && ph.days <= 60 && (lastMath == null || lastMath > 7) ? `<li class="behind">📝 ${lastMath == null ? 'Noch keine Mathe-Simulation gemacht!' : `Letzte Mathe-Simulation vor ${lastMath} Tagen.`} <a href="#/pruefung/mathe">Jetzt simulieren</a></li>` : ''}
+          <li id="streakwarn" class="behind" hidden></li>
+        </ul>
       </section>
 
       <section class="today panel">
@@ -166,7 +174,32 @@
         <a class="btn ghost" href="#/abzeichen">🏅 Abzeichen</a>
         <a class="btn ghost" href="#/fortschritt">📈 Fortschritt</a>
       </section>
-      ${!st.examDate ? `<p class="tip">Tipp: Trage unter <a href="#/fortschritt">Einstellungen</a> dein Prüfungsdatum ein – dann siehst du oben einen Countdown.</p>` : ''}`;
+`;
+    const tick = () => {
+      const el = document.getElementById('cdclock');
+      if (el) el.innerHTML = cdParts();
+      document.title = ph.days > 0 ? `BM-Trainer · noch ${ph.days} Tage` : 'BM-Trainer';
+      // Serie in Gefahr: abends noch nicht geübt
+      const w = document.getElementById('streakwarn');
+      if (w) {
+        const now = new Date(), mid = new Date(now); mid.setHours(24, 0, 0, 0);
+        const at = store.todayStats().n === 0 && now.getHours() >= 17 && ph.days > 0;
+        w.hidden = !at;
+        if (at) {
+          const sec = Math.floor((mid - now) / 1000);
+          w.innerHTML = `⏰ Heute noch nicht geübt! ${streak ? `Deine Serie von <b>${streak} Tag${streak === 1 ? '' : 'en'}</b> reisst` : 'Der Tag endet'} in <b>${Math.floor(sec / 3600)}:${String(Math.floor(sec % 3600 / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}</b>`;
+        }
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    cleanup = () => { clearInterval(iv); document.title = 'BM-Trainer'; };
+  }
+  function cdParts() {
+    const ms = Math.max(0, BMP.motiv.examTime() - Date.now());
+    const d = Math.floor(ms / 86400000), hh = Math.floor(ms / 3600000) % 24, mm = Math.floor(ms / 60000) % 60, ss = Math.floor(ms / 1000) % 60;
+    const box = (v, l) => `<div><b>${String(v).padStart(2, '0')}</b><span>${l}</span></div>`;
+    return box(d, d === 1 ? 'Tag' : 'Tage') + box(hh, 'Std') + box(mm, 'Min') + box(ss, 'Sek');
   }
 
   /* ---------- Abzeichen ---------- */
@@ -630,8 +663,9 @@
       <h2>Einstellungen</h2>
       <form class="panel settings" id="set">
         <label>Dein Vorname <input id="nm" type="text" maxlength="30" value="${h(st.name || '')}"></label>
-        <label>Datum der Aufnahmeprüfung <input id="dt" type="date" value="${h(st.examDate || '')}"></label>
+        <label>Datum der Aufnahmeprüfung <input id="dt" type="date" value="${h(BMP.motiv.examDate())}"></label>
         <label>Tagesziel <select id="dg">${[10, 20, 30, 50].map(n => `<option value="${n}" ${(st.dailyGoal || 20) === n ? 'selected' : ''}>${n} Aufgaben pro Tag</option>`).join('')}</select></label>
+        <label class="check"><input id="ag" type="checkbox" ${st.autoGoal === false ? '' : 'checked'}> Tagesziel automatisch steigern, je näher die Prüfung rückt</label>
         <button class="btn" type="submit">Speichern</button>
         <span id="saved" class="hint" aria-live="polite"></span>
       </form>
@@ -644,6 +678,7 @@
       st.name = $app.querySelector('#nm').value.trim();
       st.examDate = $app.querySelector('#dt').value;
       st.dailyGoal = Number($app.querySelector('#dg').value);
+      st.autoGoal = $app.querySelector('#ag').checked;
       st.onboarded = true;
       store.save();
       $app.querySelector('#saved').textContent = 'Gespeichert ✓';
