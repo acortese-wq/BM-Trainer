@@ -189,3 +189,18 @@ test('Aufnahmereglement KV Chur: Geometrie und Hören nicht geprüft', () => {
   assert.strictEqual(BMP.grade(37, 50), 4.5);
   assert.ok(BMP.getSubject('mathe').items.filter(i => i.id === 'm-t9')[0].topic === 'geometrie');
 });
+
+test('Nebenrechnung: Formelrechner und Minuszahlen', () => {
+  const c = BMP.calc;
+  assert.strictEqual(c('3+4*2'), 11);
+  assert.strictEqual(c('(3+4)·2'), 14);
+  assert.strictEqual(c('−5−(−8)'), 3);
+  assert.strictEqual(c('84:6×5'), 70);
+  assert.strictEqual(c('3²+4²'), 25);
+  assert.strictEqual(c('√144'), 12);
+  assert.strictEqual(c('20%·350'), 70);
+  assert.strictEqual(c('1’250,5+0.5'), 1251);
+  assert.ok(Number.isNaN(c('5+')) && Number.isNaN(c('(1+2')) && Number.isNaN(c('alert(1)')));
+  assert.ok(BMP.check({ type: 'number', answer: -3 }, '-3').ok);
+  assert.ok(BMP.check({ type: 'number', answer: 0.5 }, '1/2').ok);
+});

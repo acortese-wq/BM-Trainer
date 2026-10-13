@@ -105,13 +105,77 @@
     return { n: Math.round(x * d), d };
   }
 
+  /* Kleiner Formelrechner für Nebenrechnungen (ohne eval):
+     + − · × * / : ÷, Klammern, ^ bzw. ², √, %, π; Dezimalkomma oder -punkt */
+  function calc(expr) {
+    const src = String(expr)
+      .replace(/[\u2212\u2013]/g, '-').replace(/[×·*]/g, '*').replace(/[÷:]/g, '/')
+      .replace(/²/g, '^2').replace(/³/g, '^3').replace(/π|pi/gi, 'p')
+      .replace(/(\d)['\u2019](?=\d)/g, '$1').replace(/,/g, '.').replace(/\s+/g, '');
+    let i = 0;
+    const peek = () => src[i];
+    const num = () => {
+      const m = src.slice(i).match(/^(\d+\.?\d*|\.\d+)/);
+      if (!m) throw new Error('Zahl erwartet');
+      i += m[0].length;
+      return Number(m[0]);
+    };
+    function primary() {
+      const c = peek();
+      if (c === '(') { i++; const v = expr0(); if (peek() !== ')') throw new Error(')'); i++; return v; }
+      if (c === '√') { i++; return Math.sqrt(unary()); }
+      if (c === 'p') { i++; return Math.PI; }
+      return num();
+    }
+    function postfix() {
+      let v = primary();
+      while (peek() === '%') { i++; v /= 100; }
+      // implizite Multiplikation: 2(3+1), 3π, 2√9
+      while (peek() === '(' || peek() === 'p' || peek() === '√') v *= primary();
+      return v;
+    }
+    function power() {
+      const base = postfix();
+      if (peek() === '^') { i++; return Math.pow(base, unary()); }
+      return base;
+    }
+    function unary() {
+      if (peek() === '-') { i++; return -unary(); }
+      if (peek() === '+') { i++; return unary(); }
+      return power();
+    }
+    function term() {
+      let v = unary();
+      while (peek() === '*' || peek() === '/') {
+        const op = src[i++]; const r = unary();
+        v = op === '*' ? v * r : v / r;
+      }
+      return v;
+    }
+    function expr0() {
+      let v = term();
+      while (peek() === '+' || peek() === '-') {
+        const op = src[i++]; const r = term();
+        v = op === '+' ? v + r : v - r;
+      }
+      return v;
+    }
+    try {
+      if (!src) return NaN;
+      const v = expr0();
+      return i === src.length && Number.isFinite(v) ? v : NaN;
+    } catch (e) { return NaN; }
+  }
+  BMP.calc = calc;
+
   /* Liefert { ok, note } – note ist ein optionaler Hinweis */
   function check(item, given) {
     switch (item.type) {
       case 'mc':
         return { ok: Number(given) === item.answer };
       case 'number': {
-        const x = parseNumber(given);
+        let x = parseNumber(given);
+        if (Number.isNaN(x)) { const f = parseFraction(given); if (f) x = f.n / f.d; } // auch «1/2» erlaubt
         if (Number.isNaN(x)) return { ok: false, note: 'Bitte eine Zahl eingeben.' };
         const tol = item.tol != null ? item.tol : 1e-6;
         const answers = Array.isArray(item.answer) ? item.answer : [item.answer];
