@@ -191,10 +191,14 @@
     'Vergleiche dich mit dir von gestern – nicht mit anderen.',
     'Unsicher bei einem Thema? Merkblatt lesen, dann 10 Aufgaben üben.'
   ];
-  M.quoteOfDay = () => {
-    const d = new Date();
-    const n = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
-    return M.QUOTES[n % M.QUOTES.length];
+  // Spruch des Tages: rückwärts vom Prüfungstag aus gezählt – so kommt bis zur Prüfung jeden Tag ein neuer,
+  // die Endspurt-Sprüche am Schluss und «Morgen ist dein Tag» am Vortag.
+  M.quoteOfDay = (date) => {
+    const list = BMP.SPRUECHE || M.QUOTES;
+    const d = M.daysLeft(date);
+    if (d === 0 && BMP.SPRUCH_PRUEFUNG) return BMP.SPRUCH_PRUEFUNG;
+    if (d > 0) return list[((list.length - d) % list.length + list.length) % list.length];
+    return list[(-d) % list.length];
   };
 
   /* ---------- Tagestraining: schwache Themen bevorzugen ---------- */
