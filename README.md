@@ -22,6 +22,10 @@ auf Handy, Tablet und PC und kann auf dem Handy wie eine App auf den Homebildsch
 - **Tagestraining** – 10 Aufgaben aus den schwächsten Themen und dem Fehlerheft (Mathe doppelt gewichtet)
 - **Prüfungs-Hochrechnung** – Gesamtnote aus den letzten Simulationen nach den Aufnahmeregeln
   (Schnitt ≥ 4.0, Mathe doppelt, höchstens eine Note unter 4)
+- **Hörverständnis Englisch** – 10 eigene Hörtexte (Durchsagen, Telefonnachricht, Dialoge, Interview, Radio) mit 50 Fragen,
+  vorgelesen über die Sprachausgabe des Geräts; in der Prüfung höchstens zweimal abspielbar
+- **Vollprüfung nach Reglement** – Zeiten wie Einheitsprüfung GR (Englisch 15 + 60 min mit Hörverständnis, Mathe 2 × 60 min, Deutsch 90 min)
+- **Reglement** – Zusammenfassung der Aufnahmeregeln (KV Chur, Einheitsprüfung GR) und wie die App sie umsetzt
 - **Originalprüfungen** – Links zu den offiziellen alten Prüfungen und Erfassung der eigenen Resultate
   (die Prüfungen selbst sind urheberrechtlich geschützt und werden nicht kopiert)
 
@@ -51,6 +55,9 @@ js/core.js              Antwortprüfung, Zufall, Speicherung, Notenberechnung
 js/app.js               Oberfläche und Navigation
 js/motivation.js        Lernkonto, Stufen, Abzeichen, Tagestraining, Hochrechnung
 js/data/originale.js    Links zu offiziellen alten Aufnahmeprüfungen
+js/data/hoeren.js       Hörtexte und Fragen (Englisch Listening)
+js/data/reglement.js    Prüfungsreglement
+js/speech.js            Sprachausgabe für das Hörverständnis
 js/data/<fach>.js       Aufgaben, Generatoren, Merkblatt, Schreibthemen pro Fach
 sw.js, manifest.webmanifest, icons/   Installierbare Offline-App
 tests/content.test.js   Automatische Prüfung aller Aufgaben

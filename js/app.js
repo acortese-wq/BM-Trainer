@@ -25,7 +25,7 @@
   function groupPassages(items) {
     const order = [];
     for (const it of items) {
-      const key = it.passage ? it.passage.title : '\u0000' + order.length;
+      const key = it.passage ? it.passage.title : it.audio ? 'audio:' + it.audio.id : '\u0000' + order.length;
       let g = order.find(o => o.key === key);
       if (!g) { g = { key, list: [] }; order.push(g); }
       g.list.push(it);
@@ -171,6 +171,7 @@
       <section class="actions">
         <a class="btn ${nFehler ? 'warn' : 'ghost'}" href="#/ueben/alle/fehler">📕 Fehlerheft${nFehler ? ` (${nFehler})` : ''}</a>
         <a class="btn ghost" href="#/original">📄 Originalprüfungen</a>
+        <a class="btn ghost" href="#/reglement">📜 Reglement</a>
         <a class="btn ghost" href="#/abzeichen">🏅 Abzeichen</a>
         <a class="btn ghost" href="#/fortschritt">📈 Fortschritt</a>
       </section>
@@ -314,7 +315,10 @@
       const topics = topicId === 'mix' ? s.topics.map(t => t.id) : [topicId];
       const t = s.topics.find(x => x.id === topicId);
       if (topicId !== 'mix' && !t) return notFound();
-      items = groupPassages(BMP.draw(s, topics, 10));
+      if (topicId === 'listening') {
+        const sets = U.shuffle(BMP.audioSets).slice(0, 2);
+        items = sets.flatMap(id => s.items.filter(it => it.audio && it.audio.id === id).map(it => Object.assign({ subject: s.id }, it)));
+      } else items = groupPassages(BMP.draw(s, topics.filter(t => t !== 'listening' || topicId === 'mix'), 10));
       title = topicId === 'mix' ? s.name + ' – gemischt' : t.name;
       back = '#/fach/' + s.id;
       color = s.color;
@@ -337,12 +341,71 @@
     </form>`;
   }
 
-  function questionCard(item, n, total) {
+  function audioPanel(item, ctx) {
+    const a = item.audio;
+    if (!BMP.speech.supported) {
+      return `<div class="audio"><div class="au-head">🎧 <b>${a.title}</b></div>
+        <p class="hint">Dein Browser kann keine Texte vorlesen. Lies den Text stattdessen:</p>${transcript(a, true)}</div>`;
+    }
+    const left = ctx && ctx.exam ? 2 - (ctx.plays[a.id] || 0) : null;
+    return `<div class="audio" data-aid="${a.id}">
+      <div class="au-head">🎧 <b>${a.title}</b> <span class="muted small">${a.kind}</span></div>
+      <div class="au-ctrl">
+        <button class="btn au-play" type="button" ${left === 0 ? 'disabled' : ''}>▶︎ ${left === 0 ? 'Abgespielt' : 'Abspielen'}</button>
+        ${ctx && ctx.exam ? `<span class="au-info">${left > 0 ? `noch <b>${left}×</b> abspielbar` : 'kein weiteres Abspielen möglich'}</span>`
+          : `<label class="check small"><input type="checkbox" class="au-slow"> langsamer</label>`}
+      </div>
+      <div class="au-status muted small" aria-live="polite">${ctx && ctx.exam ? 'Wie an der Prüfung: Jeder Hörtext läuft höchstens zweimal. Lies zuerst die Frage!' : 'Tipp: Zuerst die Frage lesen, dann abspielen.'}</div>
+    </div>`;
+  }
+  function transcript(a, open) {
+    const who = { A: 'A', B: 'B', N: '' };
+    return `<details class="passage transcript" ${open ? 'open' : ''}><summary>📄 Hörtext zum Nachlesen</summary>${a.lines.map(([w, t]) => `<p>${who[w] ? `<b>${who[w]}:</b> ` : ''}${t}</p>`).join('')}</details>`;
+  }
+  function bindAudio(item, ctx) {
+    const box = $app.querySelector('.audio[data-aid]');
+    if (!box) return;
+    const btn = box.querySelector('.au-play'), status = box.querySelector('.au-status');
+    const a = item.audio;
+    let playing = false;
+    const setIdle = () => {
+      playing = false;
+      const left = ctx && ctx.exam ? 2 - (ctx.plays[a.id] || 0) : null;
+      btn.textContent = left === 0 ? '▶︎ Abgespielt' : '▶︎ Nochmals abspielen';
+      btn.disabled = left === 0;
+      const info = box.querySelector('.au-info');
+      if (info) info.innerHTML = left > 0 ? `noch <b>${left}×</b> abspielbar` : 'kein weiteres Abspielen möglich';
+    };
+    const handlers = {
+      onLine: k => { status.textContent = `🔊 Läuft … (${k + 1}/${a.lines.length})`; },
+      onEnd: () => { status.textContent = '✓ Fertig abgespielt.'; setIdle(); }
+    };
+    // Läuft dieser Hörtext schon (z. B. nach Wechsel zur nächsten Frage)? Dann weiterlaufen lassen.
+    if (BMP.speech.current === a.id) {
+      playing = true;
+      btn.textContent = '⏹ Stopp';
+      BMP.speech.handlers = handlers;
+    }
+    btn.addEventListener('click', () => {
+      if (playing) { BMP.speech.stop(); status.textContent = 'Gestoppt.'; setIdle(); return; }
+      if (ctx && ctx.exam) {
+        if ((ctx.plays[a.id] || 0) >= 2) return;
+        ctx.plays[a.id] = (ctx.plays[a.id] || 0) + 1;
+      }
+      playing = true;
+      btn.textContent = '⏹ Stopp';
+      const slow = box.querySelector('.au-slow');
+      BMP.speech.play(a, Object.assign({ rate: slow && slow.checked ? 0.72 : 0.92 }, handlers));
+    });
+  }
+
+  function questionCard(item, n, total, ctx) {
     const s = BMP.getSubject(item.subject);
     const topic = s && s.topics.find(t => t.id === item.topic);
     return `
       <div class="qhead"><span>Aufgabe ${n} / ${total}</span><span class="tag" style="--sc:${s ? s.color : 'var(--accent)'}">${s ? s.name : ''}${topic ? ' · ' + topic.name : ''}</span></div>
       ${item.passage ? `<details class="passage" open><summary>📖 ${item.passage.title}</summary>${item.passage.text}</details>` : ''}
+      ${item.audio ? audioPanel(item, ctx) : ''}
       <div class="question">${item.q}</div>
       ${item.hint && item.type === 'number' ? `<p class="hint">${item.hint}</p>` : ''}`;
   }
@@ -366,6 +429,7 @@
     }
 
     function bind(item) {
+      if (item.audio) bindAudio(item, null);
       if (item.type === 'mc') {
         $app.querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => submit(item, b.dataset.i)));
       } else {
@@ -408,11 +472,12 @@
           <p class="verdict">${res.ok ? '✅ ' + U.pick(['Richtig!', 'Genau!', 'Super!', 'Stark!', 'Perfekt!']) : '❌ Leider falsch.'}${res.note ? ' ' + res.note : ''}<span class="coin">+${earned} CHF</span></p>
           ${!res.ok ? `<p>Richtige Antwort: <b>${BMP.answerText(item)}</b></p>` : ''}
           ${item.explain ? `<p class="explain">${item.explain}</p>` : ''}
+          ${item.audio ? transcript(item.audio, false) : ''}
         </div>
         <button class="btn next" id="next">${last ? 'Auswertung' : 'Weiter →'}</button>`;
       const nb = $app.querySelector('#next');
       nb.focus({ preventScroll: true });
-      nb.addEventListener('click', () => { i++; if (i < items.length) { show(); window.scrollTo(0, 0); } else summary(); });
+      nb.addEventListener('click', () => { if (BMP.speech.speaking && !(items[i + 1] && items[i + 1].audio && items[i + 1].audio === item.audio)) BMP.speech.stop(); i++; if (i < items.length) { show(); window.scrollTo(0, 0); } else summary(); });
     }
 
     function summary() {
@@ -450,25 +515,37 @@
     $app.innerHTML = `
       ${header('Prüfung ' + s.name, '#/fach/' + id, s.color)}
       <section class="panel">
-        <p><b>${s.exam.count} Aufgaben</b> aus allen Themen · <b>${s.exam.minutes} Minuten</b></p>
+        <p>Wähle deine Prüfung:</p>
+        <div class="modes">
+          <button class="mode" data-mode="short" style="--sc:${s.color}"><b>⚡ Kurztest</b><span>${s.exam.count} Aufgaben · ${s.exam.minutes} min${s.exam.listening ? ` · inkl. ${s.exam.listening} Hörtext` : ''}</span></button>
+          <button class="mode" data-mode="full" style="--sc:${s.color}"><b>🎓 Vollprüfung nach Reglement</b><span>${s.examFull.count} Aufgaben · ${s.examFull.minutes} min${s.examFull.listening ? ` · inkl. ${s.examFull.listening} Hörtexte` : ''}</span><small>${s.examFull.note}</small></button>
+        </div>
         <ul>
           <li>Du siehst erst am Schluss, was richtig war – wie in der echten Prüfung.</li>
           <li>Du kannst zwischen den Aufgaben hin und her springen.</li>
           <li>Am Ende bekommst du eine Note (1–6, Notenschnitt 4 = genügend).</li>
           ${id === 'mathe' ? '<li>Lege Papier, Bleistift und – falls an deiner Prüfung erlaubt – den Taschenrechner bereit.</li>' : ''}
         </ul>
-        <p class="tip">Hinweis: Aufbau, Dauer und erlaubte Hilfsmittel der echten Prüfung legt deine Schule fest. Diese Simulation dient dem Training.</p>
-        <button class="btn" style="--sc:${s.color}" id="start">Prüfung starten</button>
+        <p class="tip">Aufbau, Dauer und Hilfsmittel der echten Prüfung legt deine Schule fest – siehe <a href="#/reglement">Reglement</a>.</p>
       </section>
       ${hist.length ? `<h2>Letzte Versuche</h2><table class="hist"><tr><th>Datum</th><th>Punkte</th><th>Note</th></tr>
         ${hist.map(e => `<tr><td>${new Date(e.date).toLocaleDateString('de-CH')}</td><td>${e.points}/${e.max}</td><td class="${e.grade >= 4 ? 'good' : 'bad'}">${fmtGrade(e.grade)}</td></tr>`).join('')}</table>` : ''}`;
-    $app.querySelector('#start').addEventListener('click', () => runExam(s));
+    $app.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () => runExam(s, b.dataset.mode)));
   }
 
-  function runExam(s) {
-    const items = groupPassages(BMP.draw(s, s.topics.map(t => t.id), s.exam.count));
+  function runExam(s, mode) {
+    const cfg = mode === 'full' ? s.examFull : s.exam;
+    let listen = [];
+    if (cfg.listening) {
+      const sets = U.shuffle(BMP.audioSets).slice(0, cfg.listening);
+      listen = sets.flatMap(id => s.items.filter(it => it.audio && it.audio.id === id).map(it => Object.assign({ subject: s.id }, it)));
+    }
+    const rest = BMP.draw(s, s.topics.map(t => t.id).filter(t => t !== 'listening'), Math.max(0, cfg.count - listen.length));
+    const items = listen.concat(groupPassages(rest));
+    const ctx = { exam: true, plays: {} };
     const answers = new Array(items.length).fill(null);
     let i = 0;
+    s = Object.assign({}, s, { exam: cfg });
     let remaining = s.exam.minutes * 60;
     const t0 = Date.now();
     let done = false;
@@ -482,7 +559,7 @@
       }
       if (remaining <= 0) finish(true);
     }, 1000);
-    cleanup = () => clearInterval(timer);
+    cleanup = () => { clearInterval(timer); BMP.speech.stop(); };
 
     function clock(sec) { return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
 
@@ -496,6 +573,7 @@
 
     function show() {
       const item = items[i];
+      if (BMP.speech.current && !(item.audio && item.audio.id === BMP.speech.current)) BMP.speech.stop();
       $app.innerHTML = `
         <div class="examhead" style="--sc:${s.color}">
           <span>Prüfung ${s.name}</span>
@@ -504,7 +582,7 @@
         <nav class="qgrid" aria-label="Aufgabenübersicht">${items.map((_, k) =>
           `<button data-k="${k}" class="${k === i ? 'cur' : ''} ${answers[k] != null ? 'done' : ''}">${k + 1}</button>`).join('')}</nav>
         <article class="qcard">
-          ${questionCard(item, i + 1, items.length)}
+          ${questionCard(item, i + 1, items.length, ctx)}
           <div id="answer">${answerArea(item, i, false, answers[i])}</div>
         </article>
         <div class="actions spread">
@@ -512,6 +590,7 @@
           ${i < items.length - 1 ? '<button class="btn" id="fwd">Weiter →</button>' : ''}
           <button class="btn warn" id="end">Abgeben</button>
         </div>`;
+      if (item.audio) bindAudio(item, ctx);
       if (item.type === 'mc') {
         $app.querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => {
           answers[i] = b.dataset.i;
@@ -552,7 +631,8 @@
         return { item, given, ok };
       });
       const grade = BMP.grade(points, items.length);
-      store.addExam({ subject: s.id, date: Date.now(), points, max: items.length, grade });
+      BMP.speech.stop();
+      store.addExam({ subject: s.id, date: Date.now(), points, max: items.length, grade, mode: mode || 'short' });
       setTimeout(() => { BMP.motiv.onExam(grade); updateTop(); }, 300);
       const used = Math.min(s.exam.minutes * 60, Math.floor((Date.now() - t0) / 1000));
       $app.innerHTML = `
@@ -688,6 +768,18 @@
     });
   }
 
+  function reglementPage() {
+    const R = BMP.reglement;
+    $app.innerHTML = `${header('Prüfungsreglement', '#/')}
+      <p class="lead">Die wichtigsten Regeln zur Aufnahmeprüfung – und wie die App sie umsetzt. Stand: ${R.stand}. Massgebend ist immer das offizielle Reglement und das Aufgebot deiner Schule.</p>
+      ${R.sections.map(sec => `<section class="panel regl ${sec.main ? 'main' : ''}">
+        <h2>${sec.title}</h2>
+        <ul>${sec.facts.map(f => `<li>${f}</li>`).join('')}</ul>
+        ${sec.app ? `<p class="notebox">📱 <b>In der App:</b> ${sec.app}</p>` : ''}
+        ${sec.source ? `<p class="small"><a href="${sec.source}" target="_blank" rel="noopener">Offizielle Quelle ↗</a></p>` : ''}
+      </section>`).join('')}`;
+  }
+
   function notFound() {
     $app.innerHTML = `${header('Nicht gefunden', '#/')}<p>Diese Seite gibt es nicht. <a href="#/">Zur Startseite</a></p>`;
   }
@@ -700,6 +792,7 @@
 
   function route() {
     updateTop();
+    if (BMP.speech) BMP.speech.stop();
     if (cleanup) { try { cleanup(); } catch (e) { /* ignorieren */ } cleanup = null; }
     const parts = (location.hash.replace(/^#\/?/, '') || '').split('/').filter(Boolean).map(decodeURIComponent);
     window.scrollTo(0, 0);
@@ -713,6 +806,7 @@
       case 'fortschritt': return progress();
       case 'abzeichen': return badgesPage();
       case 'original': return originalsPage();
+      case 'reglement': return reglementPage();
       default: return notFound();
     }
   }
