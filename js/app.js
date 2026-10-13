@@ -40,27 +40,121 @@
   }
   function fmtGrade(g) { return g.toFixed(1); }
 
+  /* ---------- Begrüssung (erster Start) ---------- */
+  function welcome() {
+    $app.innerHTML = `
+      <section class="welcome">
+        <div class="wl-icon">🎓</div>
+        <h1>Willkommen beim BM-Trainer!</h1>
+        <p>Hier trainierst du für die Aufnahmeprüfung an die Berufsmaturität – jeden Tag ein bisschen, mit Lernkonto, Abzeichen und Beförderungen.</p>
+        <form class="panel settings" id="wf">
+          <label>Wie heisst du? <input id="wn" type="text" maxlength="30" autocomplete="given-name" required></label>
+          <label>Wann ist deine Aufnahmeprüfung? <input id="wd" type="date"></label>
+          <label>Dein Tagesziel
+            <select id="wg"><option value="10">10 Aufgaben (ca. 7 min)</option><option value="20" selected>20 Aufgaben (ca. 15 min)</option><option value="30">30 Aufgaben (ca. 20 min)</option><option value="50">50 Aufgaben (ca. 35 min)</option></select>
+          </label>
+          <button class="btn" type="submit">Los geht’s →</button>
+        </form>
+        <p class="tip">Alles bleibt nur auf diesem Gerät gespeichert.</p>
+      </section>`;
+    $app.querySelector('#wf').addEventListener('submit', e => {
+      e.preventDefault();
+      const st = store.state;
+      st.name = $app.querySelector('#wn').value.trim();
+      st.examDate = $app.querySelector('#wd').value;
+      st.dailyGoal = Number($app.querySelector('#wg').value);
+      st.onboarded = true;
+      store.save();
+      BMP.motiv.addPoints(100, 'Startguthaben auf deinem Lernkonto 🎉');
+      location.hash = '#/';
+      home();
+    });
+  }
+
   /* ---------- Startseite ---------- */
+  function ring(value, label, sub) {
+    const r = 42, c = 2 * Math.PI * r, v = Math.max(0, Math.min(1, value));
+    return `<svg class="ring" viewBox="0 0 100 100" role="img" aria-label="${label}">
+      <circle cx="50" cy="50" r="${r}" class="ring-bg"/>
+      <circle cx="50" cy="50" r="${r}" class="ring-fg" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - v)}" transform="rotate(-90 50 50)"/>
+      <text x="50" y="49" text-anchor="middle" class="ring-t">${label}</text>
+      <text x="50" y="66" text-anchor="middle" class="ring-s">${sub}</text></svg>`;
+  }
+  function weekStrip() {
+    const names = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+    const out = [];
+    for (let k = 6; k >= 0; k--) {
+      const d = new Date(); d.setDate(d.getDate() - k);
+      const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      const day = store.state.daily[key];
+      const cls = !day ? '' : day.goalDone ? 'full' : 'part';
+      out.push(`<li class="${cls} ${k === 0 ? 'today' : ''}" title="${day ? day.n + ' Aufgaben' : 'nicht geübt'}"><span>${names[d.getDay()]}</span><i>${day ? (day.goalDone ? '✓' : day.n) : ''}</i></li>`);
+    }
+    return `<ul class="week">${out.join('')}</ul>`;
+  }
   function home() {
     const st = store.state;
+    if (!st.onboarded && !st.name) return welcome();
+    const M = BMP.motiv;
     const streak = store.streak();
     const left = daysUntil(st.examDate);
     const nFehler = store.fehlerList().length;
+    const today = store.todayStats();
+    const goal = st.dailyGoal || 20;
+    const lv = M.level(st.points || 0);
+    const pr = M.projection();
+    const nBadges = Object.keys(st.badges).length;
+    const hour = new Date().getHours();
+    const hello = hour < 11 ? 'Guten Morgen' : hour < 17 ? 'Hallo' : 'Guten Abend';
     $app.innerHTML = `
       <section class="hero">
-        <h1>Hallo${st.name ? ' ' + h(st.name) : ''}!</h1>
-        <p>Dein Training für die Aufnahmeprüfung an die Berufsmaturitätsschule (BM1).</p>
+        <h1>${hello}${st.name ? ' ' + h(st.name) : ''}!</h1>
+        <p class="quote">«${M.quoteOfDay()}»</p>
         <div class="chips">
           ${left != null && left >= 0 ? `<span class="chip">📅 ${left === 0 ? 'Heute ist Prüfung – viel Erfolg!' : `Noch <b>${left}</b> Tag${left === 1 ? '' : 'e'} bis zur Prüfung`}</span>` : ''}
-          <span class="chip">🔥 ${streak} Tag${streak === 1 ? '' : 'e'} in Folge geübt</span>
+          <span class="chip ${streak >= 3 ? 'hot' : ''}">🔥 ${streak} Tag${streak === 1 ? '' : 'e'} in Folge</span>
         </div>
       </section>
+
+      <section class="today panel">
+        ${ring(today.n / goal, today.n >= goal ? '✓' : today.n + '/' + goal, today.n >= goal ? 'geschafft!' : 'heute')}
+        <div class="today-txt">
+          <h2>${today.n >= goal ? 'Tagesziel erreicht – super!' : today.n ? `Noch ${goal - today.n} Aufgaben bis zum Tagesziel` : 'Bereit für dein Tagestraining?'}</h2>
+          <p>${today.n >= goal ? 'Alles weitere ist Bonus für dein Lernkonto.' : `Mix aus deinen schwächsten Themen und dem Fehlerheft. Bonus bei Erreichen: <b>${50 + 10 * Math.min(streak + (today.n ? 0 : 1), 10)} Lernfranken</b>.`}</p>
+          <a class="btn" href="#/ueben/tag/heute">▶︎ Tagestraining starten</a>
+        </div>
+      </section>
+      ${weekStrip()}
+
+      <section class="account panel">
+        <div class="acc-head"><span>Dein Lernkonto</span><a href="#/abzeichen">🏅 ${nBadges} Abzeichen ›</a></div>
+        <div class="balance">CHF ${U.fmt(st.points || 0, 0)}<small> Lernfranken</small></div>
+        <div class="level"><span>${lv.icon} ${lv.name}</span>${lv.next ? `<span class="muted">nächste Stufe: ${lv.next.name}</span>` : ''}</div>
+        ${bar(lv.progress)}
+        ${lv.next ? `<p class="muted small">Noch ${U.fmt(lv.next.min - (st.points || 0), 0)} Lernfranken bis zur Beförderung.</p>` : '<p class="muted small">Höchste Stufe erreicht! 👑</p>'}
+      </section>
+
+      <section class="panel forecast">
+        <h2>Prüfungs-Hochrechnung</h2>
+        <p class="muted small">Aus deiner letzten Simulation pro Fach – Mathematik zählt doppelt. Bestanden mit Schnitt ≥ 4.0 und höchstens einer Note unter 4.</p>
+        <div class="fc-grid">
+          ${['mathe', 'deutsch', 'englisch'].map(id => {
+            const g = pr.latest[id], s = BMP.getSubject(id);
+            return `<a href="#/pruefung/${id}" class="fc ${g == null ? '' : g >= 4 ? 'good' : 'bad'}"><span>${s.name}${id === 'mathe' ? ' ×2' : ''}</span><b>${g == null ? '–' : fmtGrade(g)}</b></a>`;
+          }).join('')}
+          <div class="fc total ${pr.complete ? (pr.passed ? 'good' : 'bad') : ''}"><span>Schnitt</span><b>${pr.avg == null ? '–' : fmtGrade(pr.avg)}</b></div>
+        </div>
+        <p class="fc-msg">${!pr.complete ? '👉 Mach in Mathe, Deutsch und Englisch je eine Prüfungssimulation – dann siehst du hier deine Hochrechnung.'
+          : pr.passed ? '🎓 Stand heute würdest du bestehen. Weiter so!' : '💪 Noch nicht ganz – übe gezielt die Fächer unter 4.'}</p>
+      </section>
+
+      <h2>Fächer</h2>
       <section class="grid">
         ${BMP.subjects.map(s => {
           const m = subjectMastery(s);
-          return `<a class="card subject" href="#/fach/${s.id}" style="--sc:${s.color}">
+          return `<a class="card subject ${s.extra ? 'extra' : ''}" href="#/fach/${s.id}" style="--sc:${s.color}">
             <span class="icon">${s.icon}</span>
-            <span class="title">${s.name}</span>
+            <span class="title">${s.name}${s.badge ? ` <em class="pill">${s.badge}</em>` : ''}</span>
             <span class="meta">${s.topics.length} Themen · ${pct(m)} % beherrscht</span>
             ${bar(m, s.color)}
           </a>`;
@@ -68,10 +162,67 @@
       </section>
       <section class="actions">
         <a class="btn ${nFehler ? 'warn' : 'ghost'}" href="#/ueben/alle/fehler">📕 Fehlerheft${nFehler ? ` (${nFehler})` : ''}</a>
-        <a class="btn ghost" href="#/fortschritt">📈 Fortschritt &amp; Einstellungen</a>
+        <a class="btn ghost" href="#/original">📄 Originalprüfungen</a>
+        <a class="btn ghost" href="#/abzeichen">🏅 Abzeichen</a>
+        <a class="btn ghost" href="#/fortschritt">📈 Fortschritt</a>
       </section>
-      ${!st.examDate ? `<p class="tip">Tipp: Trage unter <a href="#/fortschritt">Einstellungen</a> dein Prüfungsdatum ein – dann siehst du hier einen Countdown.</p>` : ''}
-      <p class="tip">Die offiziellen Prüfungsfächer, Daten und Anmeldefristen findest du bei deiner Berufsmaturitätsschule bzw. beim Amt für Berufsbildung Graubünden. Frage dort auch nach alten Prüfungen – sie sind das beste Training!</p>`;
+      ${!st.examDate ? `<p class="tip">Tipp: Trage unter <a href="#/fortschritt">Einstellungen</a> dein Prüfungsdatum ein – dann siehst du oben einen Countdown.</p>` : ''}`;
+  }
+
+  /* ---------- Abzeichen ---------- */
+  function badgesPage() {
+    const M = BMP.motiv, st = store.state;
+    const lv = M.level(st.points || 0);
+    $app.innerHTML = `${header('Abzeichen & Karriere', '#/')}
+      <section class="panel">
+        <h2 class="ph">Karrierestufen <small>CHF ${U.fmt(st.points || 0, 0)}</small></h2>
+        <ol class="levels">${M.LEVELS.map((l, i) => `<li class="${i < lv.index ? 'done' : i === lv.index ? 'cur' : ''}"><span>${l.icon}</span> ${l.name} <small>ab ${U.fmt(l.min, 0)}</small></li>`).join('')}</ol>
+        <p class="muted small">Lernfranken gibt es für jede Aufgabe (+10 richtig, +2 für den Versuch), fürs Tagesziel (mit Treuebonus für Serien), für perfekte Runden und für Prüfungssimulationen.</p>
+      </section>
+      <ul class="badges">${M.BADGES.map(b => {
+        const t = st.badges[b.id];
+        return `<li class="${t ? 'got' : ''}"><span class="bicon">${b.icon}</span><b>${b.name}</b><small>${b.desc}</small>${t ? `<em>${new Date(t).toLocaleDateString('de-CH')}</em>` : ''}</li>`;
+      }).join('')}</ul>`;
+  }
+
+  /* ---------- Originalprüfungen ---------- */
+  function originalsPage() {
+    const st = store.state;
+    const list = Object.entries(st.originals).sort((a, b) => b[1].date - a[1].date);
+    $app.innerHTML = `${header('Originalprüfungen', '#/')}
+      <p class="lead">Die echten Aufnahmeprüfungen der letzten Jahre sind das beste Training. Sie gehören den Schulen und sind deshalb nicht in die App kopiert – du findest sie über diese Links. Löse sie auf Papier mit Timer und trage dein Resultat hier ein.</p>
+      <ul class="topics">${BMP.originals.sources.map(s => `
+        <li><a href="${s.url}" target="_blank" rel="noopener" style="--sc:${s.main ? 'var(--accent)' : 'var(--muted)'}">
+          <span class="t-name">${s.name}${s.main ? ' <em class="pill">deine Schule</em>' : ''} ↗</span><span class="t-desc">${s.text}</span></a></li>`).join('')}</ul>
+      <h2>Resultat eintragen</h2>
+      <form class="panel settings" id="of">
+        <label>Prüfung <select id="os">${BMP.originals.sources.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select></label>
+        <label>Fach <select id="ofa"><option value="mathe">Mathematik</option><option value="deutsch">Deutsch</option><option value="englisch">Englisch</option></select></label>
+        <label>Jahrgang <input id="oy" type="text" inputmode="numeric" maxlength="9" placeholder="z. B. 2024" required></label>
+        <div class="two"><label>Erreichte Punkte <input id="op" type="text" inputmode="decimal" required></label>
+        <label>Maximale Punkte <input id="om" type="text" inputmode="decimal" required></label></div>
+        <button class="btn" type="submit">Eintragen (+150 Lernfranken)</button>
+        <span id="oerr" class="hint" aria-live="polite"></span>
+      </form>
+      ${list.length ? `<table class="hist"><tr><th>Prüfung</th><th>Fach</th><th>Punkte</th><th>Note</th><th></th></tr>
+        ${list.map(([k, o]) => `<tr><td>${h(o.sourceName)} ${h(o.year)}</td><td>${(BMP.getSubject(o.subject) || {}).name || ''}</td><td>${U.fmt(o.points)}/${U.fmt(o.max)}</td><td class="${o.grade >= 4 ? 'good' : 'bad'}">${fmtGrade(o.grade)}</td><td><button class="linkbtn" data-del="${h(k)}" aria-label="Löschen">✕</button></td></tr>`).join('')}</table>` : ''}`;
+    $app.querySelector('#of').addEventListener('submit', e => {
+      e.preventDefault();
+      const P = BMP._norm.parseNumber;
+      const points = P($app.querySelector('#op').value), max = P($app.querySelector('#om').value);
+      if (!(max > 0) || !(points >= 0) || points > max) { $app.querySelector('#oerr').textContent = 'Bitte gültige Punkte eingeben (erreicht ≤ maximal).'; return; }
+      const src = BMP.originals.sources.find(s => s.id === $app.querySelector('#os').value);
+      const key = Date.now().toString(36);
+      st.originals[key] = { source: src.id, sourceName: src.name.split(' – ')[0], subject: $app.querySelector('#ofa').value,
+        year: $app.querySelector('#oy').value.trim(), points, max, grade: Math.round((1 + 5 * points / max) * 10) / 10, date: Date.now() };
+      store.save();
+      BMP.motiv.addPoints(150, 'Originalprüfung gelöst 📄');
+      BMP.motiv.checkBadges();
+      originalsPage();
+    });
+    $app.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+      if (confirm('Eintrag löschen?')) { delete st.originals[b.dataset.del]; store.save(); originalsPage(); }
+    }));
   }
 
   /* ---------- Fachseite ---------- */
@@ -82,6 +233,8 @@
     $app.innerHTML = `
       ${header(s.name, '#/', s.color)}
       <p class="lead">${s.intro}</p>
+      ${s.note ? `<p class="notebox">ℹ️ ${s.note}</p>` : ''}
+      ${s.id === 'mathe' ? '<p class="notebox">⭐ Mathematik zählt an der Aufnahmeprüfung (KV Chur) <b>doppelt</b> – hier lohnt sich jede Minute!</p>' : ''}
       <div class="actions">
         <a class="btn" style="--sc:${s.color}" href="#/ueben/${s.id}/mix">🎲 Alles gemischt üben</a>
         <a class="btn" style="--sc:${s.color}" href="#/pruefung/${s.id}">⏱️ Prüfung simulieren</a>
@@ -109,7 +262,10 @@
   /* ---------- Üben ---------- */
   function practice(subjectId, topicId) {
     let items, title, back, color;
-    if (topicId === 'fehler') {
+    if (subjectId === 'tag') {
+      items = groupPassages(BMP.motiv.dailyMix(10));
+      title = 'Tagestraining'; back = '#/'; color = 'var(--accent)';
+    } else if (topicId === 'fehler') {
       const list = store.fehlerList(subjectId === 'alle' ? null : subjectId);
       items = U.shuffle(list.map(f => Object.assign({}, f.item))).slice(0, 15);
       title = 'Fehlerheft';
@@ -198,6 +354,8 @@
         return;
       }
       store.record(item, res.ok);
+      const earned = BMP.motiv.onAnswer(item, res.ok);
+      updateTop();
       if (res.ok) correct++; else wrong.push({ item, given });
       // Antwortbereich sperren und markieren
       if (item.type === 'mc') {
@@ -214,7 +372,7 @@
       const last = i === items.length - 1;
       $app.querySelector('#feedback').innerHTML = `
         <div class="fb ${res.ok ? 'ok' : 'no'}">
-          <p class="verdict">${res.ok ? '✅ Richtig!' : '❌ Leider falsch.'}${res.note ? ' ' + res.note : ''}</p>
+          <p class="verdict">${res.ok ? '✅ ' + U.pick(['Richtig!', 'Genau!', 'Super!', 'Stark!', 'Perfekt!']) : '❌ Leider falsch.'}${res.note ? ' ' + res.note : ''}<span class="coin">+${earned} CHF</span></p>
           ${!res.ok ? `<p>Richtige Antwort: <b>${BMP.answerText(item)}</b></p>` : ''}
           ${item.explain ? `<p class="explain">${item.explain}</p>` : ''}
         </div>
@@ -225,6 +383,8 @@
     }
 
     function summary() {
+      BMP.motiv.onRound(correct, items.length);
+      updateTop();
       const ratio = correct / items.length;
       const msg = ratio === 1 ? 'Perfekt! 🌟' : ratio >= 0.8 ? 'Sehr gut! 💪' : ratio >= 0.6 ? 'Gut gemacht – weiter so!' : 'Dranbleiben – Übung macht den Meister!';
       $app.innerHTML = `
@@ -360,6 +520,7 @@
       });
       const grade = BMP.grade(points, items.length);
       store.addExam({ subject: s.id, date: Date.now(), points, max: items.length, grade });
+      setTimeout(() => { BMP.motiv.onExam(grade); updateTop(); }, 300);
       const used = Math.min(s.exam.minutes * 60, Math.floor((Date.now() - t0) / 1000));
       $app.innerHTML = `
         ${header('Auswertung ' + s.name, '#/fach/' + s.id, s.color)}
@@ -470,6 +631,7 @@
       <form class="panel settings" id="set">
         <label>Dein Vorname <input id="nm" type="text" maxlength="30" value="${h(st.name || '')}"></label>
         <label>Datum der Aufnahmeprüfung <input id="dt" type="date" value="${h(st.examDate || '')}"></label>
+        <label>Tagesziel <select id="dg">${[10, 20, 30, 50].map(n => `<option value="${n}" ${(st.dailyGoal || 20) === n ? 'selected' : ''}>${n} Aufgaben pro Tag</option>`).join('')}</select></label>
         <button class="btn" type="submit">Speichern</button>
         <span id="saved" class="hint" aria-live="polite"></span>
       </form>
@@ -481,6 +643,8 @@
       e.preventDefault();
       st.name = $app.querySelector('#nm').value.trim();
       st.examDate = $app.querySelector('#dt').value;
+      st.dailyGoal = Number($app.querySelector('#dg').value);
+      st.onboarded = true;
       store.save();
       $app.querySelector('#saved').textContent = 'Gespeichert ✓';
     });
@@ -494,7 +658,13 @@
   }
 
   /* ---------- Router ---------- */
+  function updateTop() {
+    const el = document.getElementById('topcoins');
+    if (el) el.textContent = 'CHF ' + U.fmt(store.state.points || 0, 0);
+  }
+
   function route() {
+    updateTop();
     if (cleanup) { try { cleanup(); } catch (e) { /* ignorieren */ } cleanup = null; }
     const parts = (location.hash.replace(/^#\/?/, '') || '').split('/').filter(Boolean).map(decodeURIComponent);
     window.scrollTo(0, 0);
@@ -506,6 +676,8 @@
       case 'merkblatt': return merkblatt(parts[1]);
       case 'schreiben': return parts[2] != null ? writingTask(parts[1], Number(parts[2])) : writingList(parts[1]);
       case 'fortschritt': return progress();
+      case 'abzeichen': return badgesPage();
+      case 'original': return originalsPage();
       default: return notFound();
     }
   }

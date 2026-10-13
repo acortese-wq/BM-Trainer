@@ -10,7 +10,7 @@ const root = path.join(__dirname, '..');
 const ctx = { console, Math, Date, Number, String, Array, Object, JSON, Set };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
-for (const f of ['js/core.js', 'js/data/mathe.js', 'js/data/deutsch.js', 'js/data/englisch.js', 'js/data/italienisch.js']) {
+for (const f of ['js/core.js', 'js/data/mathe.js', 'js/data/deutsch.js', 'js/data/englisch.js', 'js/data/italienisch.js', 'js/data/originale.js', 'js/motivation.js']) {
   vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f });
 }
 const BMP = ctx.BMP;
@@ -124,4 +124,26 @@ test('Note 1–6 und Ziehen von Aufgaben', () => {
     assert.strictEqual(all.length, s.exam.count, `${s.id}: Prüfung hat ${all.length} statt ${s.exam.count} Aufgaben`);
     for (const t of s.topics) assert.ok(BMP.draw(s, [t.id], 10).length >= 1);
   }
+});
+
+test('Motivation: Stufen, Hochrechnung, Tagestraining', () => {
+  const M = BMP.motiv, st = BMP.store.state;
+  assert.strictEqual(M.level(0).name, 'Schnupperlernende');
+  assert.strictEqual(M.level(300).index, 1);
+  assert.ok(M.level(999999).next === undefined);
+  // Hochrechnung: Mathe doppelt, max. eine Note unter 4
+  st.exams = [{ subject: 'mathe', grade: 4.5 }, { subject: 'deutsch', grade: 3.5 }, { subject: 'englisch', grade: 4 }];
+  let p = M.projection();
+  assert.ok(p.complete && Math.abs(p.avg - 4.125) < 1e-9 && p.passed);
+  st.exams.push({ subject: 'englisch', grade: 3.5 });
+  p = M.projection();
+  assert.ok(!p.passed, 'zwei Noten unter 4 → nicht bestanden');
+  st.exams.push({ subject: 'italienisch', grade: 1 });
+  assert.strictEqual(M.projection().avg, p.avg, 'Italienisch zählt nicht');
+  // Tagestraining nur aus Prüfungsfächern
+  const mix = M.dailyMix(10);
+  assert.strictEqual(mix.length, 10);
+  assert.ok(mix.every(i => ['mathe', 'deutsch', 'englisch'].includes(i.subject)));
+  mix.forEach(i => validate(i, 'dailyMix'));
+  assert.ok(M.BADGES.every(b => typeof b.test() === 'boolean'));
 });

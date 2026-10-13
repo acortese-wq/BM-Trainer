@@ -188,7 +188,8 @@
 
   /* ---------- Speicherung (localStorage) ---------- */
   const KEY = 'bm-trainer-v1';
-  const blank = () => ({ topics: {}, exams: [], fehler: {}, days: [], drafts: {}, name: '' });
+  const blank = () => ({ topics: {}, exams: [], fehler: {}, days: [], drafts: {}, name: '', examDate: '',
+    points: 0, daily: {}, badges: {}, dailyGoal: 20, originals: {}, onboarded: false, total: 0, totalCorrect: 0 });
   let state = blank();
 
   function load() {
@@ -228,12 +229,18 @@
         state.fehler[fk] = { item: copy, streak: 0, added: Date.now() };
       } else if (state.fehler[fk]) {
         state.fehler[fk].streak++;
-        if (state.fehler[fk].streak >= 2) delete state.fehler[fk];
+        if (state.fehler[fk].streak >= 2) { delete state.fehler[fk]; state.fehlerCleared = (state.fehlerCleared || 0) + 1; }
       }
       const d = today();
       if (!state.days.includes(d)) { state.days.push(d); if (state.days.length > 400) state.days.shift(); }
+      const day = state.daily[d] || (state.daily[d] = { n: 0, c: 0, subjects: [] });
+      day.n++; if (ok) day.c++;
+      if (!day.subjects.includes(item.subject)) day.subjects.push(item.subject);
+      state.total++; if (ok) state.totalCorrect++;
       save();
     },
+    today,
+    todayStats() { return state.daily[today()] || { n: 0, c: 0, subjects: [] }; },
     topicStats(subjectId, topicId) {
       return state.topics[subjectId + '/' + topicId] || { seen: 0, correct: 0, recent: [] };
     },

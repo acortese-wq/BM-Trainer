@@ -1,7 +1,8 @@
 # BM-Trainer
 
-Übungs-App für die **Aufnahmeprüfung an die Berufsmaturitätsschule (BM1, Kanton Graubünden)**
-in den Fächern **Mathematik, Deutsch, Englisch und Italienisch**.
+Übungs-App für die **Aufnahmeprüfung an die Berufsmaturitätsschule (BM1, Kanton Graubünden)**.
+Ausgerichtet auf die **BM1 Typ Wirtschaft am KV Chur**: Prüfungsfächer Deutsch, Englisch und
+Mathematik (zählt doppelt). Italienisch ist als freiwilliges Zusatztraining enthalten.
 
 Die App ist eine reine Web-App: kein Server, kein Login, kein Build-Schritt. Sie läuft im Browser
 auf Handy, Tablet und PC und kann auf dem Handy wie eine App auf den Homebildschirm gelegt werden
@@ -16,6 +17,13 @@ auf Handy, Tablet und PC und kann auf dem Handy wie eine App auf den Homebildsch
 - **Merkblätter** – die wichtigsten Regeln und Formeln pro Fach (druckbar)
 - **Schreibtraining** – Aufsatzthemen mit Timer, Wortzähler, Checkliste und automatisch gespeichertem Entwurf
 - **Fortschritt** – Beherrschung pro Thema, Prüfungsverlauf, Countdown bis zum Prüfungsdatum, Lerntage in Folge
+- **Motivation** – Tagesziel mit Fortschrittsring und Wochenübersicht, Lernkonto mit «Lernfranken»,
+  Karrierestufen (von der Schnupperlernenden bis zur Direktorin), 20 Abzeichen, Treuebonus für Lernserien
+- **Tagestraining** – 10 Aufgaben aus den schwächsten Themen und dem Fehlerheft (Mathe doppelt gewichtet)
+- **Prüfungs-Hochrechnung** – Gesamtnote aus den letzten Simulationen nach den Aufnahmeregeln
+  (Schnitt ≥ 4.0, Mathe doppelt, höchstens eine Note unter 4)
+- **Originalprüfungen** – Links zu den offiziellen alten Prüfungen und Erfassung der eigenen Resultate
+  (die Prüfungen selbst sind urheberrechtlich geschützt und werden nicht kopiert)
 
 ## Starten
 
@@ -41,6 +49,8 @@ index.html              Einstiegsseite
 css/style.css           Gestaltung (hell/dunkel, für Handy optimiert)
 js/core.js              Antwortprüfung, Zufall, Speicherung, Notenberechnung
 js/app.js               Oberfläche und Navigation
+js/motivation.js        Lernkonto, Stufen, Abzeichen, Tagestraining, Hochrechnung
+js/data/originale.js    Links zu offiziellen alten Aufnahmeprüfungen
 js/data/<fach>.js       Aufgaben, Generatoren, Merkblatt, Schreibthemen pro Fach
 sw.js, manifest.webmanifest, icons/   Installierbare Offline-App
 tests/content.test.js   Automatische Prüfung aller Aufgaben

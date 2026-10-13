@@ -1,0 +1,223 @@
+/* BM-Trainer – Motivation: Lernkonto, Karrierestufen, Abzeichen, Tagesziel, Effekte */
+(function (root) {
+  'use strict';
+  const BMP = root.BMP;
+  const store = BMP.store;
+
+  /* ---------- Karrierestufen (Lernfranken) ---------- */
+  const LEVELS = [
+    { min: 0, name: 'Schnupperlernende', icon: '🌱' },
+    { min: 300, name: 'Lernende 1. Lehrjahr', icon: '📘' },
+    { min: 900, name: 'Lernende 2. Lehrjahr', icon: '📗' },
+    { min: 1800, name: 'Lernende 3. Lehrjahr', icon: '📙' },
+    { min: 3000, name: 'BM-Kandidatin', icon: '🎯' },
+    { min: 4500, name: 'Kundenberaterin', icon: '💼' },
+    { min: 6500, name: 'Teamleiterin', icon: '⭐' },
+    { min: 9000, name: 'Geschäftsstellenleiterin', icon: '🏦' },
+    { min: 12500, name: 'Direktorin', icon: '👑' }
+  ];
+  function level(points) {
+    let i = 0;
+    while (i + 1 < LEVELS.length && points >= LEVELS[i + 1].min) i++;
+    const cur = LEVELS[i], next = LEVELS[i + 1];
+    return { index: i, ...cur, next, progress: next ? (points - cur.min) / (next.min - cur.min) : 1 };
+  }
+
+  /* ---------- Abzeichen ---------- */
+  const st = () => store.state;
+  const daysCount = () => Object.keys(st().daily).length;
+  const examsBy = (subj, min) => st().exams.some(e => (!subj || e.subject === subj) && e.grade >= min);
+  const BADGES = [
+    { id: 'start', icon: '🚀', name: 'Los geht’s', desc: 'Die erste Aufgabe gelöst', test: () => st().total >= 1 },
+    { id: 'goal1', icon: '🎯', name: 'Tagesziel', desc: 'Zum ersten Mal das Tagesziel erreicht', test: () => Object.values(st().daily).some(d => d.goalDone) },
+    { id: 'streak3', icon: '🔥', name: 'Dranbleiberin', desc: '3 Tage in Folge geübt', test: () => store.streak() >= 3 },
+    { id: 'streak7', icon: '🔥', name: 'Wochenserie', desc: '7 Tage in Folge geübt', test: () => store.streak() >= 7 },
+    { id: 'streak30', icon: '🏆', name: 'Monatsserie', desc: '30 Tage in Folge geübt', test: () => store.streak() >= 30 },
+    { id: 'n100', icon: '💯', name: '100 Aufgaben', desc: '100 Aufgaben bearbeitet', test: () => st().total >= 100 },
+    { id: 'n500', icon: '📚', name: '500 Aufgaben', desc: '500 Aufgaben bearbeitet', test: () => st().total >= 500 },
+    { id: 'n1000', icon: '🧠', name: '1000 Aufgaben', desc: '1000 Aufgaben bearbeitet', test: () => st().total >= 1000 },
+    { id: 'perfect', icon: '🌟', name: 'Perfekte Runde', desc: 'Eine Übungsrunde ohne Fehler', test: () => !!st().perfectRounds },
+    { id: 'perfect5', icon: '✨', name: 'Fehlerlos ×5', desc: '5 perfekte Übungsrunden', test: () => (st().perfectRounds || 0) >= 5 },
+    { id: 'fehler10', icon: '📕', name: 'Aus Fehlern gelernt', desc: '10 Aufgaben aus dem Fehlerheft gemeistert', test: () => (st().fehlerCleared || 0) >= 10 },
+    { id: 'allsubj', icon: '🎨', name: 'Allrounderin', desc: 'Mathe, Deutsch und Englisch am selben Tag geübt', test: () => Object.values(st().daily).some(d => ['mathe', 'deutsch', 'englisch'].every(s => d.subjects.includes(s))) },
+    { id: 'exam1', icon: '📝', name: 'Prüfungsluft', desc: 'Die erste Prüfungssimulation abgeschlossen', test: () => st().exams.length >= 1 },
+    { id: 'exam4', icon: '✅', name: 'Genügend', desc: 'Eine Prüfungssimulation mit Note 4 oder besser', test: () => examsBy(null, 4) },
+    { id: 'exam5', icon: '🥇', name: 'Sehr gut', desc: 'Eine Prüfungssimulation mit Note 5 oder besser', test: () => examsBy(null, 5) },
+    { id: 'math5', icon: '∑', name: 'Mathe-Profi', desc: 'Mathe-Simulation mit Note 5 oder besser (zählt doppelt!)', test: () => examsBy('mathe', 5) },
+    { id: 'pass', icon: '🎓', name: 'Bereit für die BM', desc: 'Hochrechnung aus Mathe, Deutsch und Englisch: bestanden', test: () => { const p = projection(); return p.complete && p.passed; } },
+    { id: 'early', icon: '🌅', name: 'Frühaufsteherin', desc: 'Vor 7 Uhr morgens geübt', test: () => !!st().earlyBird },
+    { id: 'original', icon: '📄', name: 'Originalprüfung', desc: 'Eine echte alte Aufnahmeprüfung gelöst und eingetragen', test: () => Object.values(st().originals).some(o => o.grade) },
+    { id: 'days20', icon: '📅', name: '20 Lerntage', desc: 'An 20 verschiedenen Tagen geübt', test: () => daysCount() >= 20 }
+  ];
+
+  /* ---------- Prüfungs-Hochrechnung (KV Chur, BM1 Typ Wirtschaft) ---------- */
+  const WEIGHTS = { mathe: 2, deutsch: 1, englisch: 1 };
+  function projection() {
+    const latest = {};
+    for (const e of st().exams) if (WEIGHTS[e.subject]) latest[e.subject] = e.grade;
+    const subjects = Object.keys(WEIGHTS);
+    const complete = subjects.every(s => latest[s] != null);
+    let sum = 0, w = 0;
+    for (const s of subjects) if (latest[s] != null) { sum += latest[s] * WEIGHTS[s]; w += WEIGHTS[s]; }
+    const avg = w ? sum / w : null;
+    const below = subjects.filter(s => latest[s] != null && latest[s] < 4).length;
+    return { latest, complete, avg, below, passed: complete && avg >= 4 && below <= 1 };
+  }
+
+  /* ---------- Toasts & Konfetti ---------- */
+  let toastBox = null;
+  function toast(html, kind) {
+    if (!root.document) return;
+    if (!toastBox) {
+      toastBox = document.createElement('div');
+      toastBox.className = 'toasts';
+      toastBox.setAttribute('aria-live', 'polite');
+      document.body.appendChild(toastBox);
+    }
+    const t = document.createElement('div');
+    t.className = 'toast ' + (kind || '');
+    t.innerHTML = html;
+    toastBox.appendChild(t);
+    // höchstens 3 Meldungen gleichzeitig
+    while (toastBox.children.length > 3) toastBox.firstChild.remove();
+    setTimeout(() => t.classList.add('out'), 3800);
+    setTimeout(() => t.remove(), 4400);
+  }
+
+  function confetti() {
+    if (!root.document || (root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    const c = document.createElement('canvas');
+    c.className = 'confetti';
+    document.body.appendChild(c);
+    const ctx = c.getContext('2d');
+    const W = c.width = innerWidth, H = c.height = innerHeight;
+    const cols = ['#e30613', '#1f1f1f', '#ffffff', '#f4b400', '#00677f'];
+    const ps = Array.from({ length: 140 }, () => ({
+      x: W / 2 + (Math.random() - .5) * W * .3, y: H * .35, vx: (Math.random() - .5) * 14, vy: -Math.random() * 14 - 4,
+      s: 5 + Math.random() * 6, r: Math.random() * 6, vr: (Math.random() - .5) * .3, c: cols[Math.floor(Math.random() * cols.length)]
+    }));
+    let f = 0;
+    (function draw() {
+      ctx.clearRect(0, 0, W, H);
+      for (const p of ps) {
+        p.vy += .35; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.vx *= .99;
+        ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r);
+        ctx.fillStyle = p.c; ctx.strokeStyle = 'rgba(0,0,0,.15)';
+        ctx.fillRect(-p.s / 2, -p.s / 3, p.s, p.s * .66); ctx.strokeRect(-p.s / 2, -p.s / 3, p.s, p.s * .66);
+        ctx.restore();
+      }
+      if (++f < 150) requestAnimationFrame(draw); else c.remove();
+    })();
+  }
+
+  /* ---------- Punkte vergeben ---------- */
+  function addPoints(n, reason) {
+    const before = level(st().points || 0);
+    st().points = (st().points || 0) + n;
+    const after = level(st().points);
+    store.save();
+    if (reason) toast(`<b>+${n} Lernfranken</b> · ${reason}`, 'coin');
+    if (after.index > before.index) {
+      toast(`${after.icon} <b>Beförderung!</b><br>Du bist jetzt <b>${after.name}</b>.`, 'big');
+      confetti();
+    }
+  }
+
+  function checkBadges() {
+    const got = st().badges;
+    for (const b of BADGES) {
+      if (!got[b.id] && b.test()) {
+        got[b.id] = Date.now();
+        store.save();
+        toast(`<span class="ticon">${b.icon}</span> <b>Neues Abzeichen:</b> ${b.name}<br><small>${b.desc}</small>`, 'big');
+      }
+    }
+  }
+
+  const M = {
+    LEVELS, BADGES, level, projection, toast, confetti,
+    onAnswer(item, ok) {
+      // Punkte ohne Toast (sonst zu viel Rummel) – sichtbar im Feedback
+      st().points = (st().points || 0) + (ok ? 10 : 2);
+      const lvBefore = level(st().points - (ok ? 10 : 2));
+      if (new Date().getHours() < 7) st().earlyBird = true;
+      const day = store.todayStats();
+      const goal = st().dailyGoal || 20;
+      if (!day.goalDone && day.n >= goal) {
+        day.goalDone = true;
+        const streak = store.streak();
+        const bonus = 50 + 10 * Math.min(streak, 10);
+        store.save();
+        addPoints(bonus, `Tagesziel erreicht${streak > 1 ? ` – Treuebonus für ${streak} Tage in Folge` : ''} 🎯`);
+        confetti();
+      } else {
+        store.save();
+        const lv = level(st().points);
+        if (lv.index > lvBefore.index) { toast(`${lv.icon} <b>Beförderung!</b><br>Du bist jetzt <b>${lv.name}</b>.`, 'big'); confetti(); }
+      }
+      checkBadges();
+      return ok ? 10 : 2;
+    },
+    onRound(correct, total) {
+      if (total >= 5 && correct === total) {
+        st().perfectRounds = (st().perfectRounds || 0) + 1;
+        store.save();
+        addPoints(50, 'Perfekte Runde 🌟');
+        confetti();
+      }
+      checkBadges();
+    },
+    onExam(grade) {
+      addPoints(Math.round(grade * 20), `Prüfungssimulation (Note ${grade.toFixed(1)})`);
+      if (grade >= 5) confetti();
+      checkBadges();
+    },
+    checkBadges,
+    addPoints
+  };
+
+  /* ---------- Sprüche ---------- */
+  M.QUOTES = [
+    'Jeden Tag ein bisschen – das summiert sich wie Zinseszins.',
+    'Fehler sind keine Niederlagen, sondern Lernchancen. Darum gibt es das Fehlerheft!',
+    'Mathe zählt doppelt – jede Mathe-Aufgabe ist eine gute Investition.',
+    'Du musst nicht perfekt sein. Eine 4 im Schnitt reicht für die Aufnahme.',
+    'Kleine Schritte, grosse Wirkung: 20 Aufgaben am Tag sind in 15 Minuten gemacht.',
+    'Wer übt, wird ruhiger an der Prüfung. Simuliere sie ruhig mehrmals!',
+    'Lies die Aufgabe zweimal – viele Fehler passieren beim Lesen, nicht beim Rechnen.',
+    'Pausen gehören zum Lernen. Nach 25 Minuten kurz aufstehen und Wasser trinken.',
+    'Die BM öffnet dir die Tür zur Fachhochschule. Es lohnt sich!',
+    'Heute schon geübt? Dein Lernkonto freut sich über jede Einzahlung.',
+    'Vergleiche dich mit dir von gestern – nicht mit anderen.',
+    'Unsicher bei einem Thema? Merkblatt lesen, dann 10 Aufgaben üben.'
+  ];
+  M.quoteOfDay = () => {
+    const d = new Date();
+    const n = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+    return M.QUOTES[n % M.QUOTES.length];
+  };
+
+  /* ---------- Tagestraining: schwache Themen bevorzugen ---------- */
+  M.dailyMix = function (count) {
+    const out = [];
+    const fehler = BMP.U.shuffle(store.fehlerList().filter(f => WEIGHTS[f.item.subject]));
+    const nF = Math.min(fehler.length, Math.floor(count * 0.3));
+    for (let i = 0; i < nF; i++) out.push(Object.assign({}, fehler[i].item));
+    const subjects = BMP.subjects.filter(s => WEIGHTS[s.id]);
+    let guard = 0;
+    while (out.length < count && guard++ < count * 20) {
+      // Fach nach Gewicht (Mathe doppelt), Thema nach Schwäche
+      const bag = subjects.flatMap(s => Array(WEIGHTS[s.id]).fill(s));
+      const s = BMP.U.pick(bag);
+      const ws = s.topics.map(t => 1.2 - store.mastery(s.id, t.id));
+      let r = Math.random() * ws.reduce((a, b) => a + b, 0), k = 0;
+      while (r > ws[k]) { r -= ws[k]; k++; }
+      const [it] = BMP.draw(s, [s.topics[Math.min(k, s.topics.length - 1)].id], 1);
+      if (it && !out.some(o => o.q === it.q)) out.push(it);
+    }
+    return BMP.U.shuffle(out);
+  };
+
+  M.WEIGHTS = WEIGHTS;
+  BMP.motiv = M;
+})(typeof window !== 'undefined' ? window : globalThis);

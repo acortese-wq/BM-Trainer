@@ -281,7 +281,8 @@
 <ul><li>la camera = Zimmer, il conto = Rechnung, la ricetta = Rezept, caldo = warm, burro = Butter, la fermata = Haltestelle</li></ul>`;
 
   BMP.subjects.push({
-    id: 'italienisch', name: 'Italienisch', icon: 'It', color: 'var(--c-italienisch)',
+    id: 'italienisch', name: 'Italienisch', icon: 'It', color: 'var(--c-italienisch)', extra: true, badge: 'Zusatz',
+    note: 'Italienisch ist nicht Teil der Aufnahmeprüfung BM1 Typ Wirtschaft (KV Chur). Dieses Fach ist ein freiwilliges Zusatztraining – es zählt nicht für die Hochrechnung.',
     intro: 'Articoli, presente, passato prossimo, preposizioni, aggettivi, vocabolario e lettura.',
     topics: [
       { id: 'articoli', name: 'Articoli', desc: 'il, lo, la, l’ – un, uno, una, un’' },

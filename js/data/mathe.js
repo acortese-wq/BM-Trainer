@@ -550,7 +550,7 @@
 <li>Zeit: 1 h = 60 min, 0.25 h = 15 min, 0.75 h = 45 min</li></ul>`;
 
   BMP.subjects.push({
-    id: 'mathe', name: 'Mathematik', icon: '∑', color: 'var(--c-mathe)',
+    id: 'mathe', name: 'Mathematik', icon: '∑', color: 'var(--c-mathe)', badge: 'zählt doppelt',
     intro: 'Rechnen, Algebra, Geometrie und Textaufgaben. Die meisten Aufgaben werden zufällig neu erzeugt – du kannst also beliebig oft üben.',
     topics: [
       { id: 'grundop', name: 'Grundoperationen', desc: 'Rechenregeln, negative Zahlen, Mittelwert' },
