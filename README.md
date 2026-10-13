@@ -40,7 +40,8 @@ python3 -m http.server 8000
 
 Der Workflow `.github/workflows/pages.yml` testet die Inhalte und veröffentlicht die App bei jedem
 Push auf `main`. Einmalig nötig: im Repository unter **Settings → Pages → Source** «GitHub Actions» wählen.
-Danach ist die App unter `https://<benutzer>.github.io/<repository>/` erreichbar.
+Danach ist die App unter **https://acortese-wq.github.io/BM-Trainer/** erreichbar.
+Auf dem Handy die Adresse öffnen und «Zum Home-Bildschirm» wählen – dann startet sie wie eine App.
 
 ## Aufbau
 
