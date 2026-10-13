@@ -191,7 +191,8 @@
   ];
 
   // Thema «Listening» an Englisch anhängen
-  en.topics.push({ id: 'listening', name: 'Listening', desc: 'Hörverständnis: Durchsagen, Dialoge, Interviews' });
+  en.topics.push({ id: 'listening', name: 'Listening', desc: 'Hörverständnis: Durchsagen, Dialoge, Interviews',
+    notTested: 'Das Aufnahmereglement KV Chur (Art. 10) sieht eine schriftliche Prüfung vor – ein Hörverständnis wird nicht erwähnt. Hören ist trotzdem gutes Training für die BM.' });
   for (const a of AUDIO) {
     const audio = { id: a.id, title: a.title, kind: a.kind, lines: a.lines, voices: a.voices || {} };
     a.qs.forEach((q, k) => en.items.push(Object.assign({ id: `e-l-${a.id}-${k + 1}`, topic: 'listening', audio }, q)));

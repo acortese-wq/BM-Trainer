@@ -209,10 +209,11 @@
       // Fach nach Gewicht (Mathe doppelt), Thema nach Schwäche
       const bag = subjects.flatMap(s => Array(WEIGHTS[s.id]).fill(s));
       const s = BMP.U.pick(bag);
-      const ws = s.topics.map(t => 1.2 - store.mastery(s.id, t.id));
+      const tops = BMP.examTopics(s);
+      const ws = tops.map(t => 1.2 - store.mastery(s.id, t));
       let r = Math.random() * ws.reduce((a, b) => a + b, 0), k = 0;
-      while (r > ws[k]) { r -= ws[k]; k++; }
-      const [it] = BMP.draw(s, [s.topics[Math.min(k, s.topics.length - 1)].id], 1);
+      while (k < ws.length - 1 && r > ws[k]) { r -= ws[k]; k++; }
+      const [it] = BMP.draw(s, [tops[k]], 1);
       if (it && !out.some(o => o.q === it.q)) out.push(it);
     }
     return BMP.U.shuffle(out);
@@ -244,7 +245,7 @@
     { min: 0, id: 'heute', name: 'Prüfungstag', icon: '🍀', goal: 0,
       msgs: ['Heute ist der Tag! Ruhig atmen, Aufgaben genau lesen, du schaffst das. Viel Glück!'] },
     { min: -Infinity, id: 'vorbei', name: 'Geschafft', icon: '🎓', goal: 0,
-      msgs: ['Die Prüfung ist vorbei. Egal wie es ausgeht – du hast alles gegeben!'] }
+      msgs: ['Die Prüfung ist vorbei – du hast alles gegeben! Das KV Chur teilt dir das Resultat spätestens drei Wochen nach der Prüfung schriftlich mit (Art. 14).'] }
   ];
   M.phase = (days) => {
     const d = days == null ? M.daysLeft() : days;

@@ -162,6 +162,9 @@
     return subject.items.filter(i => i.topic === topicId);
   };
 
+  /* Themen, die an der Aufnahmeprüfung geprüft werden (ohne Zusatzthemen) */
+  BMP.examTopics = s => s.topics.filter(t => !t.notTested).map(t => t.id);
+
   BMP.draw = function (subject, topicIds, count) {
     const pool = [];
     for (const t of topicIds) {

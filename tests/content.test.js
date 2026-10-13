@@ -178,3 +178,14 @@ test('Hörverständnis: vollständige Hörtexte mit Fragen', () => {
   assert.ok(BMP.reglement.sections.length >= 3);
   assert.strictEqual(BMP.speech.supported, false, 'in Node keine Sprachausgabe');
 });
+
+test('Aufnahmereglement KV Chur: Geometrie und Hören nicht geprüft', () => {
+  const m = BMP.getSubject('mathe'), e = BMP.getSubject('englisch');
+  assert.ok(!BMP.examTopics(m).includes('geometrie'), 'Geometrie darf nicht geprüft werden (Art. 10)');
+  assert.ok(!BMP.examTopics(e).includes('listening'));
+  assert.ok(BMP.examTopics(m).length === m.topics.length - 1);
+  for (let k = 0; k < 20; k++) assert.ok(BMP.motiv.dailyMix(10).every(i => !(i.subject === 'mathe' && i.topic === 'geometrie') && i.topic !== 'listening'));
+  // Art. 11: halbe Noten; Art. 12: Schnitt ≥ 4 und höchstens eine ungenügende Note
+  assert.strictEqual(BMP.grade(37, 50), 4.5);
+  assert.ok(BMP.getSubject('mathe').items.filter(i => i.id === 'm-t9')[0].topic === 'geometrie');
+});

@@ -482,7 +482,7 @@
       explain: 'V = 25 · 12 · 1.8 = 540 m³. 1 m³ = 1000 l → 540’000 l.' },
     { id: 'm-t8', topic: 'textaufgaben', type: 'number', unit: 'CHF', q: 'Ein Handy kostet nach einer Preiserhöhung von 20 % CHF 360. Wie viel kostete es vorher (in CHF)?', answer: 300,
       explain: '360 CHF entsprechen 120 %. 1 % = 3 CHF, 100 % = 300 CHF. Achtung: Nicht 20 % von 360 abziehen!' },
-    { id: 'm-t9', topic: 'textaufgaben', type: 'number', unit: 'm', q: 'Eine 5 m lange Leiter steht 1.4 m von einer Wand entfernt. Wie hoch reicht die Leiter an der Wand hinauf (in m)?', answer: 4.8, tol: 0.001,
+    { id: 'm-t9', topic: 'geometrie', type: 'number', unit: 'm', q: 'Eine 5 m lange Leiter steht 1.4 m von einer Wand entfernt. Wie hoch reicht die Leiter an der Wand hinauf (in m)?', answer: 4.8, tol: 0.001,
       explain: 'Pythagoras: h² = 5² − 1.4² = 25 − 1.96 = 23.04. h = √23.04 = 4.8 m.' },
     { id: 'm-t10', topic: 'textaufgaben', type: 'number', unit: 'l', q: 'Ein Auto verbraucht 6.5 Liter Benzin auf 100 km. Wie viele Liter braucht es für 340 km?', answer: 22.1, tol: 0.001,
       explain: 'Pro km: 6.5 : 100 = 0.065 l. 340 · 0.065 = 22.1 l.' },
@@ -538,7 +538,7 @@
 <ul><li>Proportional: doppelt so viel → doppelt so teuer (Quotient konstant).</li>
 <li>Umgekehrt proportional: doppelt so viele Personen → halb so lang (Produkt konstant).</li>
 <li>Weg = Geschwindigkeit · Zeit (s = v · t)</li></ul>
-<h3>Geometrie</h3>
+<h3>Geometrie <small>(am KV Chur nicht geprüft, Art. 10)</small></h3>
 <ul><li>Rechteck: A = a · b, U = 2(a + b) &nbsp;|&nbsp; Quadrat: A = a², U = 4a</li>
 <li>Dreieck: A = g · h / 2, Winkelsumme 180°</li><li>Trapez: A = (a + c) / 2 · h &nbsp;|&nbsp; Parallelogramm: A = g · h</li>
 <li>Kreis: U = 2πr = πd, A = πr²</li><li>Pythagoras (rechtwinklig): a² + b² = c² (c = Hypotenuse, gegenüber dem rechten Winkel)</li>
@@ -562,13 +562,13 @@
       { id: 'funktionen', name: 'Lineare Funktionen', desc: 'Steigung, Achsenabschnitt, Nullstelle' },
       { id: 'prozent', name: 'Prozent & Zins', desc: 'Prozentwert, -satz, Grundwert, Rabatt' },
       { id: 'dreisatz', name: 'Proportionalität', desc: 'Dreisatz, Geschwindigkeit, Massstab' },
-      { id: 'geometrie', name: 'Geometrie', desc: 'Flächen, Umfang, Volumen, Pythagoras' },
+      { id: 'geometrie', name: 'Geometrie', desc: 'Flächen, Umfang, Volumen, Pythagoras', notTested: 'Gemäss Aufnahmereglement KV Chur (Art. 10) wird Mathematik ohne Geometrie geprüft. Dieses Thema ist nur Zusatztraining.' },
       { id: 'einheiten', name: 'Masseinheiten', desc: 'Länge, Fläche, Volumen, Masse, Zeit' },
       { id: 'textaufgaben', name: 'Textaufgaben', desc: 'Sachaufgaben aus dem Alltag' }
     ],
     items, generators: G, merkblatt,
     exam: { count: 20, minutes: 45 },
-    examFull: { count: 40, minutes: 120, note: 'Wie Einheitsprüfung GR: 2 × 60 min (Arithmetik/Algebra und Geometrie)' }
+    examFull: { count: 30, minutes: 60, note: 'Ohne Geometrie (Art. 10). Dauer im Reglement nicht festgelegt – Richtwert 60 min wie Teil «Arithmetik & Algebra» der Einheitsprüfung GR.' }
   });
 
   BMP._mathHelpers = { poly, mono };
