@@ -383,3 +383,21 @@ label.check input { width: 1.2rem; height: 1.2rem; }
 .regl li { margin: .3rem 0; }
 
 .pill.muted-pill { background: var(--muted); }
+
+/* ---------- Ziffernblock & Nebenrechnung ---------- */
+.keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: .7rem; }
+.key { font: inherit; font-size: 1.25rem; font-weight: 600; min-height: 48px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; touch-action: manipulation; }
+.key:active { background: var(--surface-2); }
+.key-op { background: var(--surface-2); }
+.key-calc.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.calc-open { margin-top: .5rem; padding-left: 0; color: var(--accent); font-weight: 600; }
+.calcbox { margin-top: .7rem; padding: .7rem; border: 2px dashed var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.calcbox[hidden] { display: none; }
+.calcrow { display: flex; gap: .5rem; align-items: center; margin: .3rem 0 .5rem; }
+.calcrow input { flex: 1; min-width: 0; font: inherit; padding: .55rem .7rem; min-height: 44px; border: 2px solid var(--border);
+  border-radius: var(--radius); background: var(--surface); color: var(--text); }
+.calcrow output { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 4.5rem; text-align: right; }
+.calcops { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.calcops .key { font-size: 1rem; min-height: 40px; }
+.calcops .btn { grid-column: 1 / -1; margin-top: .3rem; }

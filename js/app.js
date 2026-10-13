@@ -328,19 +328,93 @@
     runQuiz({ items, title, back, color, again: location.hash, note: tInfo && tInfo.notTested });
   }
 
-  function answerArea(item, idx, disabled, prev) {
+  // Touch-Gerät einmal beim Start bestimmen (stabil während der ganzen Sitzung)
+  const IS_TOUCH = (navigator.maxTouchPoints || 0) > 0 || !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+  const touch = () => IS_TOUCH;
+  function calcAllowed(exam) { return !exam || !!store.state.calcExam; }
+
+  /* Ziffernblock (Handy) und Nebenrechnung für Zahlen- und Bruchaufgaben */
+  function numTools(item, exam) {
+    const keys = ['7', '8', '9', '⌫', '4', '5', '6', '−', '1', '2', '3', '/', '0', '.', 'C', '🧮'];
+    const calcOk = calcAllowed(exam);
+    return `
+      ${touch() ? `<div class="keypad" role="group" aria-label="Ziffernblock">${keys.map(k =>
+        k === '🧮' ? (calcOk ? `<button type="button" class="key key-calc" data-k="calc" aria-label="Nebenrechnung">🧮</button>` : '<span></span>')
+          : `<button type="button" class="key${/[0-9.]/.test(k) ? '' : ' key-op'}" data-k="${k}" aria-label="${k === '⌫' ? 'Löschen' : k === 'C' ? 'Alles löschen' : k}">${k}</button>`).join('')}</div>`
+        : (calcOk ? `<button type="button" class="linkbtn calc-open" data-k="calc">🧮 Nebenrechnung</button>` : '')}
+      ${calcOk ? `<div class="calcbox" hidden>
+        <label class="small muted" for="calcin">Nebenrechnung – z. B. <code>84:6·5</code> oder <code>(3+4)·2</code></label>
+        <div class="calcrow"><input id="calcin" type="text" inputmode="${touch() ? 'none' : 'text'}" autocomplete="off" spellcheck="false" placeholder="Rechnung eingeben">
+          <output id="calcout" aria-live="polite">=</output></div>
+        <div class="calcops">${['+', '×', ':', '(', ')', '^', '√', '%'].map(o => `<button type="button" class="key key-op" data-op="${o}">${o}</button>`).join('')}
+          <button type="button" class="btn ghost" id="calctake">Ergebnis übernehmen ↑</button></div>
+      </div>` : ''}`;
+  }
+
+  function bindNumTools() {
+    const ans = $app.querySelector('#ans');
+    if (!ans) return;
+    const calcin = $app.querySelector('#calcin'), out = $app.querySelector('#calcout'), box = $app.querySelector('.calcbox');
+    let target = ans;
+    const update = () => {
+      if (!calcin) return;
+      const v = BMP.calc(calcin.value);
+      out.textContent = calcin.value.trim() ? (Number.isNaN(v) ? '= ?' : '= ' + U.fmt(v, 6)) : '=';
+    };
+    const put = txt => {
+      if (target.disabled) return;
+      target.value += txt;
+      target.dispatchEvent(new Event('input'));
+    };
+    $app.querySelectorAll('.keypad .key, .calc-open').forEach(b => b.addEventListener('click', () => {
+      const k = b.dataset.k;
+      if (k === 'calc') {
+        if (!box) return;
+        box.hidden = !box.hidden;
+        target = box.hidden ? ans : calcin;
+        $app.querySelector('.key-calc') && $app.querySelector('.key-calc').classList.toggle('on', !box.hidden);
+        if (!box.hidden && !touch()) calcin.focus();
+        return;
+      }
+      if (target.disabled) return;
+      if (k === '⌫') target.value = target.value.slice(0, -1);
+      else if (k === 'C') target.value = '';
+      else put(k === '−' ? '-' : k);
+      target.dispatchEvent(new Event('input'));
+    }));
+    if (calcin) {
+      calcin.addEventListener('input', update);
+      calcin.addEventListener('focus', () => { target = calcin; });
+      ans.addEventListener('focus', () => { target = ans; });
+      $app.querySelectorAll('.calcops [data-op]').forEach(b => b.addEventListener('click', () => {
+        target = calcin; calcin.value += b.dataset.op === '×' ? '·' : b.dataset.op; update();
+      }));
+      $app.querySelector('#calctake').addEventListener('click', () => {
+        const v = BMP.calc(calcin.value);
+        if (Number.isNaN(v) || ans.disabled) return;
+        ans.value = String(U.round(v, 6));
+        ans.dispatchEvent(new Event('input'));
+        target = ans;
+      });
+    }
+  }
+
+  function answerArea(item, idx, disabled, prev, exam) {
     if (item.type === 'mc') {
       return `<div class="options">${item.options.map((o, i) =>
         `<button class="opt${prev != null && Number(prev) === i ? ' sel' : ''}" data-i="${i}" ${disabled ? 'disabled' : ''}>${o}</button>`).join('')}</div>`;
     }
-    const mode = item.type === 'text' ? 'text' : 'decimal';
+    const numeric = item.type === 'number' || item.type === 'fraction';
+    // Handy: eigener Ziffernblock (die Zahlentastatur von iOS hat kein Minus)
+    const mode = item.type === 'text' ? 'text' : touch() ? 'none' : 'text';
     const ph = item.hint || (item.type === 'number' ? 'Zahl eingeben' : item.type === 'fraction' ? 'z. B. 3/4' : 'Antwort eingeben');
     return `<form class="inputrow" autocomplete="off">
-      <input id="ans" type="text" inputmode="${item.type === 'fraction' ? 'text' : mode}" autocapitalize="off" autocorrect="off" spellcheck="false"
+      <input id="ans" type="text" inputmode="${mode}" autocapitalize="off" autocorrect="off" spellcheck="false"
         placeholder="${h(ph)}" value="${prev != null ? h(prev) : ''}" ${disabled ? 'disabled' : ''} aria-label="Antwort">
       ${item.unit ? `<span class="unit">${item.unit}</span>` : ''}
       <button class="btn" type="submit" ${disabled ? 'disabled' : ''}>Prüfen</button>
-    </form>`;
+    </form>
+    ${numeric && !disabled ? numTools(item, exam) : ''}`;
   }
 
   function audioPanel(item, ctx) {
@@ -438,7 +512,8 @@
       } else {
         const form = $app.querySelector('form');
         const input = $app.querySelector('#ans');
-        input.focus({ preventScroll: true });
+        bindNumTools();
+        if (!touch() || item.type === 'text') input.focus({ preventScroll: true });
         form.addEventListener('submit', e => {
           e.preventDefault();
           if (!input.value.trim()) { input.focus(); return; }
@@ -467,6 +542,7 @@
         });
       } else {
         $app.querySelectorAll('#answer input, #answer button').forEach(el => { el.disabled = true; });
+        const kp = $app.querySelector('#answer .keypad'); if (kp) kp.remove();
         $app.querySelector('#ans').classList.add(res.ok ? 'right' : 'wrong');
       }
       const last = i === items.length - 1;
@@ -529,6 +605,7 @@
           <li>Du kannst zwischen den Aufgaben hin und her springen.</li>
           <li>Am Ende bekommst du eine Note (1–6, Notenschnitt 4 = genügend).</li>
           ${id === 'mathe' ? '<li>Geprüft wird ohne Geometrie (Art. 10) – die Simulation auch.</li><li>Lege Papier und Bleistift bereit. Ob ein Taschenrechner erlaubt ist, steht im Aufgebot der Schule.</li>' : ''}
+          <li>🧮 Nebenrechnung in der Simulation: <b>${store.state.calcExam ? 'erlaubt' : 'aus'}</b> – umstellen unter <a href="#/fortschritt">Einstellungen</a>.</li>
         </ul>
         <p class="tip">Aufbau, Dauer und Hilfsmittel der echten Prüfung legt deine Schule fest – siehe <a href="#/reglement">Reglement</a>.</p>
       </section>
@@ -591,7 +668,7 @@
           `<button data-k="${k}" class="${k === i ? 'cur' : ''} ${answers[k] != null ? 'done' : ''}">${k + 1}</button>`).join('')}</nav>
         <article class="qcard">
           ${questionCard(item, i + 1, items.length, ctx)}
-          <div id="answer">${answerArea(item, i, false, answers[i])}</div>
+          <div id="answer">${answerArea(item, i, false, answers[i], true)}</div>
         </article>
         <div class="actions spread">
           <button class="btn ghost" id="prev" ${i === 0 ? 'disabled' : ''}>← Zurück</button>
@@ -606,8 +683,9 @@
           $app.querySelector(`.qgrid [data-k="${i}"]`).classList.add('done');
         }));
       } else {
-        const btn = $app.querySelector('#answer button');
+        const btn = $app.querySelector('#answer form button');
         btn.textContent = 'Speichern';
+        bindNumTools();
         $app.querySelector('form').addEventListener('submit', e => {
           e.preventDefault(); saveCurrent();
           $app.querySelector(`.qgrid [data-k="${i}"]`).classList.toggle('done', answers[i] != null);
@@ -753,6 +831,7 @@
         <label>Dein Vorname <input id="nm" type="text" maxlength="30" value="${h(st.name || '')}"></label>
         <label>Datum der Aufnahmeprüfung <input id="dt" type="date" value="${h(BMP.motiv.examDate())}"></label>
         <label>Tagesziel <select id="dg">${[10, 20, 30, 50].map(n => `<option value="${n}" ${(st.dailyGoal || 20) === n ? 'selected' : ''}>${n} Aufgaben pro Tag</option>`).join('')}</select></label>
+        <label class="check"><input id="ce" type="checkbox" ${st.calcExam ? 'checked' : ''}> 🧮 Nebenrechnung (Taschenrechner) auch in der Prüfungssimulation erlauben</label>
         <label class="check"><input id="ag" type="checkbox" ${st.autoGoal === false ? '' : 'checked'}> Tagesziel automatisch steigern, je näher die Prüfung rückt</label>
         <button class="btn" type="submit">Speichern</button>
         <span id="saved" class="hint" aria-live="polite"></span>
@@ -767,6 +846,7 @@
       st.examDate = $app.querySelector('#dt').value;
       st.dailyGoal = Number($app.querySelector('#dg').value);
       st.autoGoal = $app.querySelector('#ag').checked;
+      st.calcExam = $app.querySelector('#ce').checked;
       st.onboarded = true;
       store.save();
       $app.querySelector('#saved').textContent = 'Gespeichert ✓';
