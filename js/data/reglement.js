@@ -13,10 +13,22 @@
           '<b>Mathematik zählt doppelt.</b>',
           'Bestanden, wenn der <b>Notendurchschnitt mindestens 4.0</b> beträgt und <b>höchstens eine Note unter 4.0</b> liegt.',
           'Voraussetzung ist ein Lehrvertrag.',
-          'Die Prüfungen der Vorjahre findest du auf der Website des KV Chur unter «Aufnahmeprüfung».'
+          'Die Prüfungen der Vorjahre und das <b>Aufnahmereglement</b> (PDF) findest du auf der Website des KV Chur unter «Aufnahme».',
+          'Prüfungsdauer, erlaubte Hilfsmittel und ob es ein Hörverständnis gibt: im Aufnahmereglement bzw. im Aufgebot nachlesen.'
         ],
         app: 'Die Prüfungs-Hochrechnung auf der Startseite rechnet genau nach dieser Regel: (2 × Mathe + Deutsch + Englisch) : 4.',
         source: 'https://www.kvchur.ch/2-uncategorised/44-m-profil'
+      },
+      {
+        title: 'Kantonale Berufsmaturitätsverordnung Graubünden (kBMV, BR 430.400)',
+        facts: [
+          '<b>Art. 4 Abs. 1:</b> Für die Aufnahme in die lehrbegleitende BM ist grundsätzlich das Bestehen einer <b>schriftlichen Aufnahmeprüfung</b> erforderlich.',
+          '<b>Art. 4 Abs. 2 – ohne Prüfung aufgenommen</b> werden u. a.: wer für die 4. Gymnasialklasse promoviert ist; wer die Aufnahmeprüfung einer Fach-, Handels- oder Wirtschaftsmittelschule bestanden und die 3. Oberstufenklasse abgeschlossen hat; sowie wer von der Schule aufgrund gleichwertiger Voraussetzungen aufgenommen wird.',
+          'Fächer, Dauer und Termine der Prüfung legt die <b>Schule</b> fest (beim KV Chur: Deutsch, Englisch, Mathematik doppelt).',
+          'Angaben zu Prüfungsdauer, Hilfsmitteln (Taschenrechner) und Hörverständnis stehen im <b>Aufnahmereglement des KV Chur</b> – nicht in der Verordnung.'
+        ],
+        app: 'Prüfe, ob eine prüfungsfreie Aufnahme (Art. 4 Abs. 2) für dich in Frage kommt – zum Beispiel, wenn du die Einheitsprüfung für HMS/FMS bestanden hast. Falls ja: trotzdem weiter üben, die BM verlangt das gleiche Niveau!',
+        source: 'https://www.gr-lex.gr.ch/app/de/texts_of_law/430.400'
       },
       {
         title: 'Zum Vergleich: Einheitsprüfung Kanton Graubünden (Mittelschulen)',
