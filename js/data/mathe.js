@@ -567,7 +567,8 @@
       { id: 'textaufgaben', name: 'Textaufgaben', desc: 'Sachaufgaben aus dem Alltag' }
     ],
     items, generators: G, merkblatt,
-    exam: { count: 20, minutes: 45 }
+    exam: { count: 20, minutes: 45 },
+    examFull: { count: 40, minutes: 120, note: 'Wie Einheitsprüfung GR: 2 × 60 min (Arithmetik/Algebra und Geometrie)' }
   });
 
   BMP._mathHelpers = { poly, mono };

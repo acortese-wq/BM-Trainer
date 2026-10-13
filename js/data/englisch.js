@@ -213,6 +213,7 @@
       { id: 'reading', name: 'Reading', desc: 'Reading comprehension' }
     ],
     items, generators, merkblatt, writing, checklist,
-    exam: { count: 25, minutes: 40 }
+    exam: { count: 25, minutes: 40, listening: 1 },
+    examFull: { count: 40, minutes: 75, listening: 3, note: '15 min Hörverständnis + 60 min schriftlich wie Einheitsprüfung GR' }
   });
 })(typeof window !== 'undefined' ? window : globalThis);

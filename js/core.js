@@ -128,6 +128,11 @@
       }
       case 'text':
       default: {
+        if (item.digits) {
+          const d = String(given).replace(/\D/g, '');
+          const answers = Array.isArray(item.answer) ? item.answer : [item.answer];
+          return { ok: !!d && answers.some(a => String(a).replace(/\D/g, '') === d) };
+        }
         const g = normText(given);
         if (!g) return { ok: false };
         const answers = Array.isArray(item.answer) ? item.answer : [item.answer];

@@ -294,6 +294,7 @@
       { id: 'lettura', name: 'Lettura', desc: 'Comprensione del testo' }
     ],
     items, generators, merkblatt, writing, checklist,
-    exam: { count: 25, minutes: 40 }
+    exam: { count: 25, minutes: 40 },
+    examFull: { count: 40, minutes: 60, note: 'Zusatzfach – nicht Teil der Aufnahmeprüfung' }
   });
 })(typeof window !== 'undefined' ? window : globalThis);

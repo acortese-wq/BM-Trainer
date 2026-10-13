@@ -269,6 +269,7 @@
       { id: 'textverstaendnis', name: 'Textverständnis', desc: 'Texte lesen und verstehen' }
     ],
     items, merkblatt, writing, checklist,
-    exam: { count: 25, minutes: 40 }
+    exam: { count: 25, minutes: 40 },
+    examFull: { count: 40, minutes: 90, note: '90 min wie Einheitsprüfung GR – den Aufsatz übst du im Schreibtraining' }
   });
 })(typeof window !== 'undefined' ? window : globalThis);

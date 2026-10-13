@@ -10,7 +10,7 @@ const root = path.join(__dirname, '..');
 const ctx = { console, Math, Date, Number, String, Array, Object, JSON, Set };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
-for (const f of ['js/core.js', 'js/data/mathe.js', 'js/data/deutsch.js', 'js/data/englisch.js', 'js/data/italienisch.js', 'js/data/originale.js', 'js/motivation.js']) {
+for (const f of ['js/core.js', 'js/data/mathe.js', 'js/data/deutsch.js', 'js/data/englisch.js', 'js/data/hoeren.js', 'js/data/italienisch.js', 'js/data/reglement.js', 'js/data/originale.js', 'js/motivation.js', 'js/speech.js']) {
   vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f });
 }
 const BMP = ctx.BMP;
@@ -160,4 +160,21 @@ test('Countdown: Phasen und Tagesziel passen sich an', () => {
   assert.ok(M.goal() >= 20);
   st.autoGoal = false;
   assert.strictEqual(M.goal(), 20);
+});
+
+test('Hörverständnis: vollständige Hörtexte mit Fragen', () => {
+  const en = BMP.getSubject('englisch');
+  assert.ok(en.topics.some(t => t.id === 'listening'));
+  assert.ok(BMP.audioSets.length >= 8, 'mindestens 8 Hörtexte');
+  for (const id of BMP.audioSets) {
+    const qs = en.items.filter(i => i.audio && i.audio.id === id);
+    assert.ok(qs.length >= 4, `${id}: zu wenige Fragen`);
+    const a = qs[0].audio;
+    assert.ok(a.lines.length >= 3 && a.lines.every(([w, t]) => ['A', 'B', 'N'].includes(w) && t.length > 10), `${id}: Hörtext ungültig`);
+  }
+  assert.ok(BMP.check({ type: 'text', digits: true, answer: ['079433562'] }, '0794 33 562').ok);
+  assert.ok(en.exam.listening >= 1 && en.examFull.listening >= 2);
+  for (const s of BMP.subjects) assert.ok(s.examFull && s.examFull.count >= s.exam.count, `${s.id}: Vollprüfung fehlt`);
+  assert.ok(BMP.reglement.sections.length >= 3);
+  assert.strictEqual(BMP.speech.supported, false, 'in Node keine Sprachausgabe');
 });
