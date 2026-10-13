@@ -105,6 +105,54 @@
     return { n: Math.round(x * d), d };
   }
 
+  /* ---------- Kurz- und Langformen bei Textantworten ----------
+     Beispiel: «Er bringt das Paket.» → «Er brachte das Paket». Akzeptiert wird auch nur «brachte»
+     (die geänderten Wörter). Bei Lücken (___) wird auch der ganze Satz akzeptiert. */
+  const tokens = t => normText(t).split(' ').map(w => w.replace(/^[«»"„“(]+|[«»"„“),.!?;:]+$/g, '')).filter(Boolean);
+  const NOT_ALONE = ['not', 'nicht', 'non', 'no'];
+  function plainQ(item) { return String(item.q || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' '); }
+  function sourceOf(item) {
+    const q = plainQ(item);
+    const quote = q.match(/«([^»]+)»/);
+    if (quote) return quote[1];
+    const paren = q.match(/___\s*\(([^)]+)\)/);
+    return paren ? paren[1] : null;
+  }
+  // Wörter der Lösung, die im Ausgangstext nicht vorkommen (Reihenfolge der Lösung)
+  function changedWords(answer, source) {
+    const src = tokens(source);
+    const pool = src.slice();
+    const out = [];
+    for (const w of tokens(answer)) {
+      const k = pool.indexOf(w);
+      if (k >= 0) pool.splice(k, 1); else out.push(w);
+    }
+    // zusammenhängender Bereich zwischen gleichem Anfang und gleichem Ende
+    const a = tokens(answer);
+    let i = 0; while (i < a.length && i < src.length && a[i] === src[i]) i++;
+    let j = 0; while (j < a.length - i && j < src.length - i && a[a.length - 1 - j] === src[src.length - 1 - j]) j++;
+    return [out.join(' '), a.slice(i, a.length - j).join(' ')];
+  }
+  function acceptedTexts(item) {
+    const answers = Array.isArray(item.answer) ? item.answer.slice() : [item.answer];
+    const extra = [];
+    const src = sourceOf(item);
+    if (src && tokens(src).length >= 2) { // nur bei Sätzen/Wortgruppen, nicht bei Einzelwörtern («big» → «bigger»)
+      for (const a of answers) for (const f of changedWords(a, src)) {
+        if (f && !NOT_ALONE.includes(f) && f.split(' ').length < tokens(a).length) extra.push(f);
+      }
+    }
+    // Lücke: ganzer Satz mit eingesetzter Lösung
+    const q = plainQ(item);
+    if (q.includes('___')) {
+      let sent = q.split(/→|:\s/).filter(x => x.includes('___')).pop() || '';
+      sent = sent.replace(/\([^)]*\)/g, ' ').replace(/[«»"„“]/g, '').replace(/\s+/g, ' ').trim();
+      if (sent.replace('___', '').trim().length > 0) for (const a of answers) extra.push(sent.replace('___', a));
+    }
+    return { answers, extra: [...new Set(extra.map(normText))].filter(e => e && !answers.some(a => normText(a) === e)) };
+  }
+  BMP.altForms = item => item.type === 'text' && !item.digits ? acceptedTexts(item).extra.filter(e => e.split(' ').length < 4) : [];
+
   /* Kleiner Formelrechner für Nebenrechnungen (ohne eval):
      + − · × * / : ÷, Klammern, ^ bzw. ², √, %, π; Dezimalkomma oder -punkt */
   function calc(expr) {
@@ -199,8 +247,8 @@
         }
         const g = normText(given);
         if (!g) return { ok: false };
-        const answers = Array.isArray(item.answer) ? item.answer : [item.answer];
-        return { ok: answers.some(a => normText(a) === g) };
+        const acc = acceptedTexts(item);
+        return { ok: acc.answers.some(a => normText(a) === g) || acc.extra.includes(g) };
       }
     }
   }

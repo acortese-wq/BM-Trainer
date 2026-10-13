@@ -411,7 +411,9 @@
     const numeric = item.type === 'number' || item.type === 'fraction';
     // Handy: eigener Ziffernblock (die Zahlentastatur von iOS hat kein Minus)
     const mode = item.type === 'text' ? 'text' : touch() ? 'none' : 'text';
-    const ph = item.hint || (item.type === 'number' ? 'Zahl eingeben' : item.type === 'fraction' ? 'z. B. 3/4' : 'Antwort eingeben');
+    const shortOk = BMP.altForms(item).length > 0;
+    const ph = item.hint || (item.type === 'number' ? 'Zahl eingeben' : item.type === 'fraction' ? 'z. B. 3/4'
+      : shortOk ? 'Ganzer Satz oder nur die geänderten Wörter' : 'Antwort eingeben');
     return `<form class="inputrow" autocomplete="off">
       <input id="ans" type="text" inputmode="${mode}" autocapitalize="off" autocorrect="off" spellcheck="false"
         placeholder="${h(ph)}" value="${prev != null ? h(prev) : ''}" ${disabled ? 'disabled' : ''} aria-label="Antwort">
@@ -554,6 +556,7 @@
         <div class="fb ${res.ok ? 'ok' : 'no'}">
           <p class="verdict">${res.ok ? '✅ ' + U.pick(['Richtig!', 'Genau!', 'Super!', 'Stark!', 'Perfekt!']) : '❌ Leider falsch.'}${res.note ? ' ' + res.note : ''}<span class="coin">+${earned} CHF</span></p>
           ${!res.ok ? `<p>Richtige Antwort: <b>${BMP.answerText(item)}</b></p>` : ''}
+          ${BMP.altForms(item).length ? `<p class="small">Auch richtig: ${BMP.altForms(item).map(f => `<i>${h(f)}</i>`).join(' · ')}</p>` : ''}
           ${item.explain ? `<p class="explain">${item.explain}</p>` : ''}
           ${item.audio ? transcript(item.audio, false) : ''}
         </div>
