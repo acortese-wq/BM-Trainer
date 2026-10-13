@@ -13,7 +13,8 @@
   const h = U.esc;
   const pct = x => Math.round(x * 100);
   function subjectMastery(s) {
-    const vals = s.topics.map(t => store.mastery(s.id, t.id));
+    const tops = BMP.examTopics(s);
+    const vals = (tops.length ? tops : s.topics.map(t => t.id)).map(t => store.mastery(s.id, t));
     return vals.reduce((a, b) => a + b, 0) / vals.length;
   }
   function bar(value, color) {
@@ -248,7 +249,7 @@
       const src = BMP.originals.sources.find(s => s.id === $app.querySelector('#os').value);
       const key = Date.now().toString(36);
       st.originals[key] = { source: src.id, sourceName: src.name.split(' – ')[0], subject: $app.querySelector('#ofa').value,
-        year: $app.querySelector('#oy').value.trim(), points, max, grade: Math.round((1 + 5 * points / max) * 10) / 10, date: Date.now() };
+        year: $app.querySelector('#oy').value.trim(), points, max, grade: BMP.grade(points, max), date: Date.now() };
       store.save();
       BMP.motiv.addPoints(150, 'Originalprüfung gelöst 📄');
       BMP.motiv.checkBadges();
@@ -268,7 +269,7 @@
       ${header(s.name, '#/', s.color)}
       <p class="lead">${s.intro}</p>
       ${s.note ? `<p class="notebox">ℹ️ ${s.note}</p>` : ''}
-      ${s.id === 'mathe' ? '<p class="notebox">⭐ Mathematik zählt an der Aufnahmeprüfung (KV Chur) <b>doppelt</b> – hier lohnt sich jede Minute!</p>' : ''}
+      ${s.id === 'mathe' ? '<p class="notebox">⭐ Mathematik zählt an der Aufnahmeprüfung (KV Chur) <b>doppelt</b> – hier lohnt sich jede Minute! Geprüft wird <b>ohne Geometrie</b> (Art. 10).</p>' : ''}
       <div class="actions">
         <a class="btn" style="--sc:${s.color}" href="#/ueben/${s.id}/mix">🎲 Alles gemischt üben</a>
         <a class="btn" style="--sc:${s.color}" href="#/pruefung/${s.id}">⏱️ Prüfung simulieren</a>
@@ -284,7 +285,7 @@
           const st = store.topicStats(s.id, t.id);
           const m = store.mastery(s.id, t.id);
           return `<li><a href="#/ueben/${s.id}/${t.id}" style="--sc:${s.color}">
-            <span class="t-name">${t.name}</span>
+            <span class="t-name">${t.name}${t.notTested ? ' <em class="pill muted-pill">nicht geprüft</em>' : ''}</span>
             <span class="t-desc">${t.desc}</span>
             ${bar(m, s.color)}
             <span class="t-stat">${st.seen ? `${st.correct}/${st.seen} richtig` : 'noch nicht geübt'}</span>
@@ -312,18 +313,19 @@
     } else {
       const s = BMP.getSubject(subjectId);
       if (!s) return notFound();
-      const topics = topicId === 'mix' ? s.topics.map(t => t.id) : [topicId];
+      const topics = topicId === 'mix' ? BMP.examTopics(s) : [topicId];
       const t = s.topics.find(x => x.id === topicId);
       if (topicId !== 'mix' && !t) return notFound();
       if (topicId === 'listening') {
         const sets = U.shuffle(BMP.audioSets).slice(0, 2);
         items = sets.flatMap(id => s.items.filter(it => it.audio && it.audio.id === id).map(it => Object.assign({ subject: s.id }, it)));
-      } else items = groupPassages(BMP.draw(s, topics.filter(t => t !== 'listening' || topicId === 'mix'), 10));
+      } else items = groupPassages(BMP.draw(s, topics, 10));
       title = topicId === 'mix' ? s.name + ' – gemischt' : t.name;
       back = '#/fach/' + s.id;
       color = s.color;
     }
-    runQuiz({ items, title, back, color, again: location.hash });
+    const tInfo = BMP.getSubject(subjectId) && BMP.getSubject(subjectId).topics.find(x => x.id === topicId);
+    runQuiz({ items, title, back, color, again: location.hash, note: tInfo && tInfo.notTested });
   }
 
   function answerArea(item, idx, disabled, prev) {
@@ -419,6 +421,7 @@
       const item = items[i];
       $app.innerHTML = `
         ${header(title, back, color)}
+        ${cfg.note && i === 0 ? `<p class="notebox">ℹ️ ${cfg.note}</p>` : ''}
         ${bar(i / items.length, color)}
         <article class="qcard">
           ${questionCard(item, i + 1, items.length)}
@@ -517,30 +520,35 @@
       <section class="panel">
         <p>Wähle deine Prüfung:</p>
         <div class="modes">
-          <button class="mode" data-mode="short" style="--sc:${s.color}"><b>⚡ Kurztest</b><span>${s.exam.count} Aufgaben · ${s.exam.minutes} min${s.exam.listening ? ` · inkl. ${s.exam.listening} Hörtext` : ''}</span></button>
-          <button class="mode" data-mode="full" style="--sc:${s.color}"><b>🎓 Vollprüfung nach Reglement</b><span>${s.examFull.count} Aufgaben · ${s.examFull.minutes} min${s.examFull.listening ? ` · inkl. ${s.examFull.listening} Hörtexte` : ''}</span><small>${s.examFull.note}</small></button>
+          <button class="mode" data-mode="short" style="--sc:${s.color}"><b>⚡ Kurztest</b><span>${s.exam.count} Aufgaben · ${s.exam.minutes} min</span></button>
+          <button class="mode" data-mode="full" style="--sc:${s.color}"><b>🎓 Vollprüfung nach Reglement</b><span>${s.examFull.count} Aufgaben · ${s.examFull.minutes} min</span><small>${s.examFull.note}</small></button>
         </div>
+        ${s.exam.listening ? `<label class="check"><input type="checkbox" id="withlisten"> 🎧 Mit Hörverständnis (+15 min) – im KV-Reglement nicht vorgesehen, aber gutes Zusatztraining</label>` : ''}
         <ul>
           <li>Du siehst erst am Schluss, was richtig war – wie in der echten Prüfung.</li>
           <li>Du kannst zwischen den Aufgaben hin und her springen.</li>
           <li>Am Ende bekommst du eine Note (1–6, Notenschnitt 4 = genügend).</li>
-          ${id === 'mathe' ? '<li>Lege Papier, Bleistift und – falls an deiner Prüfung erlaubt – den Taschenrechner bereit.</li>' : ''}
+          ${id === 'mathe' ? '<li>Geprüft wird ohne Geometrie (Art. 10) – die Simulation auch.</li><li>Lege Papier und Bleistift bereit. Ob ein Taschenrechner erlaubt ist, steht im Aufgebot der Schule.</li>' : ''}
         </ul>
         <p class="tip">Aufbau, Dauer und Hilfsmittel der echten Prüfung legt deine Schule fest – siehe <a href="#/reglement">Reglement</a>.</p>
       </section>
       ${hist.length ? `<h2>Letzte Versuche</h2><table class="hist"><tr><th>Datum</th><th>Punkte</th><th>Note</th></tr>
         ${hist.map(e => `<tr><td>${new Date(e.date).toLocaleDateString('de-CH')}</td><td>${e.points}/${e.max}</td><td class="${e.grade >= 4 ? 'good' : 'bad'}">${fmtGrade(e.grade)}</td></tr>`).join('')}</table>` : ''}`;
-    $app.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () => runExam(s, b.dataset.mode)));
+    $app.querySelectorAll('.mode').forEach(b => b.addEventListener('click', () => {
+      const lc = $app.querySelector('#withlisten');
+      runExam(s, b.dataset.mode, !!(lc && lc.checked));
+    }));
   }
 
-  function runExam(s, mode) {
-    const cfg = mode === 'full' ? s.examFull : s.exam;
+  function runExam(s, mode, withListening) {
+    let cfg = mode === 'full' ? s.examFull : s.exam;
+    if (cfg.listening && withListening) cfg = Object.assign({}, cfg, { minutes: cfg.minutes + 15 });
     let listen = [];
-    if (cfg.listening) {
+    if (cfg.listening && withListening) {
       const sets = U.shuffle(BMP.audioSets).slice(0, cfg.listening);
       listen = sets.flatMap(id => s.items.filter(it => it.audio && it.audio.id === id).map(it => Object.assign({ subject: s.id }, it)));
     }
-    const rest = BMP.draw(s, s.topics.map(t => t.id).filter(t => t !== 'listening'), Math.max(0, cfg.count - listen.length));
+    const rest = BMP.draw(s, BMP.examTopics(s), Math.max(0, cfg.count - listen.length));
     const items = listen.concat(groupPassages(rest));
     const ctx = { exam: true, plays: {} };
     const answers = new Array(items.length).fill(null);
@@ -774,6 +782,7 @@
       <p class="lead">Die wichtigsten Regeln zur Aufnahmeprüfung – und wie die App sie umsetzt. Stand: ${R.stand}. Massgebend ist immer das offizielle Reglement und das Aufgebot deiner Schule.</p>
       ${R.sections.map(sec => `<section class="panel regl ${sec.main ? 'main' : ''}">
         <h2>${sec.title}</h2>
+        ${sec.sub ? `<p class="muted small">${sec.sub}</p>` : ''}
         <ul>${sec.facts.map(f => `<li>${f}</li>`).join('')}</ul>
         ${sec.app ? `<p class="notebox">📱 <b>In der App:</b> ${sec.app}</p>` : ''}
         ${sec.source ? `<p class="small"><a href="${sec.source}" target="_blank" rel="noopener">Offizielle Quelle ↗</a></p>` : ''}

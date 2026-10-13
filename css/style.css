@@ -381,3 +381,5 @@ label.check input { width: 1.2rem; height: 1.2rem; }
 .regl h2 { margin-top: 0; }
 .regl.main { border-top: 4px solid var(--accent); }
 .regl li { margin: .3rem 0; }
+
+.pill.muted-pill { background: var(--muted); }
