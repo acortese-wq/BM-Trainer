@@ -401,3 +401,22 @@ label.check input { width: 1.2rem; height: 1.2rem; }
 .calcops { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .calcops .key { font-size: 1.15rem; min-height: 44px; }
 .calcops .btn { grid-column: 1 / -1; margin-top: .3rem; }
+
+/* ---------- Beurteilung Schreibtraining ---------- */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: .6rem 0; }
+@media (max-width: 480px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+.kpi { display: flex; flex-direction: column; align-items: center; text-align: center; padding: .6rem .3rem; background: var(--surface);
+  border: 2px solid var(--border); border-radius: var(--radius); }
+.kpi b { font-size: 1.5rem; }
+.kpi span { font-size: .8rem; color: var(--muted); }
+.kpi small { font-size: .72rem; color: var(--muted); }
+.kpi.good { border-color: var(--ok); } .kpi.good b { color: var(--ok); }
+.kpi.bad { border-color: var(--no); } .kpi.bad b { color: var(--no); }
+.hints { padding-left: 1.1rem; margin: .4rem 0 0; }
+.hints li { margin: .45rem 0; }
+.ctx { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .82rem; color: var(--muted); }
+.crit { display: grid; gap: .3rem; margin: .7rem 0; }
+.crit select, .crit input { width: 100%; min-width: 0; font: inherit; padding: .5rem .6rem; border-radius: var(--radius); border: 2px solid var(--border); background: var(--surface); color: var(--text); }
+.gradebox { display: flex; align-items: baseline; gap: .7rem; margin: 1rem 0; }
+.gradebox b { font-size: 2.2rem; }
+.gradebox small { color: var(--muted); }

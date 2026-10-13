@@ -10,7 +10,7 @@ const root = path.join(__dirname, '..');
 const ctx = { console, Math, Date, Number, String, Array, Object, JSON, Set };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
-for (const f of ['js/core.js', 'js/data/mathe.js', 'js/data/deutsch.js', 'js/data/englisch.js', 'js/data/hoeren.js', 'js/data/italienisch.js', 'js/data/reglement.js', 'js/data/originale.js', 'js/motivation.js', 'js/speech.js']) {
+for (const f of ['js/core.js', 'js/data/mathe.js', 'js/data/deutsch.js', 'js/data/englisch.js', 'js/data/hoeren.js', 'js/data/italienisch.js', 'js/data/reglement.js', 'js/data/originale.js', 'js/motivation.js', 'js/speech.js', 'js/writing.js']) {
   vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f });
 }
 const BMP = ctx.BMP;
@@ -235,4 +235,21 @@ test('Kurzantworten: nur die geänderten Wörter genügen', () => {
     const subj = x.q.match(/: (.*) ___/)[1].replace(/\s*\(.*\)/, '');
     assert.ok(BMP.check(x, subj + ' ' + x.answer[0]).ok, x.q + ' → ' + subj + ' ' + x.answer[0]);
   }
+});
+
+test('Schreibtraining: Analyse und Note', () => {
+  const W = BMP.writing;
+  const bad = W.analyze('Ich finde das ich gut bin weil ich übe. Eigendlich mag ich die Straße. beim lesen lerne ich.', 'deutsch', { minWords: 100 });
+  const msgs = bad.issues.map(i => i.msg).join(' | ');
+  for (const k of ['dass', 'Komma vor «weil»', 'Eigentlich', 'ss', 'gross']) assert.ok(msgs.includes(k), 'fehlt: ' + k + ' in ' + msgs);
+  const good = W.analyze('Das ist ein schöner Tag. Ich hoffe, dass du kommst. Beim Lesen lerne ich viel. Wir gingen nach Hause und weil es regnete, blieben wir drinnen.', 'deutsch', { minWords: 20 });
+  assert.strictEqual(good.issues.length, 0, JSON.stringify(good.issues));
+  const en = W.analyze('Yesterday i have visited London. Does she like it? My sister she like tea. It was alot of fun.', 'englisch', { minWords: 50 }).issues.map(i => i.msg).join(' | ');
+  for (const k of ['«I»', 'Past simple', 'she likes', 'a lot']) assert.ok(en.includes(k), 'EN fehlt: ' + k);
+  assert.ok(!en.includes('«she like»'));
+  const it = W.analyze("E' stato bello perche ho visto un'amico. Qual'è il problema?", 'italienisch', { minWords: 20 }).issues.length;
+  assert.ok(it >= 4);
+  assert.strictEqual(W.grade({ inhalt: 3, aufbau: 3, sprache: 3, richtigkeit: 3, form: 3 }).grade, 6);
+  assert.strictEqual(W.grade({ inhalt: 0, aufbau: 0, sprache: 0, richtigkeit: 0, form: 0 }).grade, 1);
+  assert.strictEqual(W.grade({ inhalt: 2, aufbau: 2, sprache: 2, richtigkeit: 1, form: 1 }).grade, 4);
 });

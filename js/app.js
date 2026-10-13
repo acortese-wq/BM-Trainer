@@ -768,7 +768,7 @@
         const words = draft ? countWords(draft) : 0;
         return `<li><a href="#/schreiben/${id}/${k}" style="--sc:${s.color}">
           <span class="t-name">${w.title}</span><span class="t-desc">${w.kind} · ca. ${w.minWords} Wörter · ${w.minutes} min</span>
-          ${words ? `<span class="t-stat">Entwurf: ${words} Wörter</span>` : ''}</a></li>`;
+          ${(() => { const ev = (store.state.writingEvals || []).filter(e => e.key === id + '/' + k).pop(); return ev ? `<span class="t-stat">Note ${fmtGrade(ev.grade)}</span>` : words ? `<span class="t-stat">Entwurf: ${words} Wörter</span>` : ''; })()}</a></li>`;
       }).join('')}</ul>`;
   }
   function countWords(t) { return (t.trim().match(/\S+/g) || []).length; }
@@ -786,7 +786,9 @@
       <textarea id="txt" rows="16" placeholder="Hier schreiben …" spellcheck="false">${h(store.state.drafts[key] || '')}</textarea>
       <h2>Checkliste</h2>
       <ul class="checklist">${(s.checklist || []).map((c, n) => `<li><label><input type="checkbox" id="c${n}"> ${c}</label></li>`).join('')}</ul>
-      <div class="actions"><button class="btn ghost" id="clear">Text löschen</button></div>`;
+      <div class="actions"><button class="btn" id="judge" style="--sc:${s.color}">📝 Text beurteilen</button><button class="btn ghost" id="clear">Text löschen</button></div>
+      <section id="report" aria-live="polite"></section>
+      ${evalHistory(key)}`;
     const txt = $app.querySelector('#txt'), wc = $app.querySelector('#wc'), tclock = $app.querySelector('#tclock'), tbtn = $app.querySelector('#tbtn');
     const upd = () => {
       const n = countWords(txt.value);
@@ -815,7 +817,82 @@
     $app.querySelector('#clear').addEventListener('click', () => {
       if (confirm('Text wirklich löschen?')) { txt.value = ''; delete store.state.drafts[key]; store.save(); upd(); }
     });
+    $app.querySelector('#judge').addEventListener('click', () => {
+      store.state.drafts[key] = txt.value; store.save();
+      renderReport(s, w, key, txt.value);
+      $app.querySelector('#report').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     cleanup = () => { clearInterval(tick); clearTimeout(saveT); store.state.drafts[key] = txt.value; store.save(); };
+  }
+
+  function evalHistory(key) {
+    const list = (store.state.writingEvals || []).filter(e => e.key === key).slice(-5).reverse();
+    if (!list.length) return '';
+    return `<h2>Bisherige Beurteilungen</h2><table class="hist"><tr><th>Datum</th><th>Wörter</th><th>Beurteilt von</th><th>Note</th></tr>
+      ${list.map(e => `<tr><td>${new Date(e.date).toLocaleDateString('de-CH')}</td><td>${e.words}</td><td>${h(e.by || 'selbst')}</td><td class="${e.grade >= 4 ? 'good' : 'bad'}">${fmtGrade(e.grade)}</td></tr>`).join('')}</table>`;
+  }
+
+  function renderReport(s, w, key, text) {
+    const W = BMP.writing;
+    const a = W.analyze(text, s.id, w);
+    const box = $app.querySelector('#report');
+    if (a.words < 20) {
+      box.innerHTML = `<p class="notebox">✍️ Schreib zuerst mindestens ein paar Sätze – dann kann ich deinen Text beurteilen.</p>`;
+      return;
+    }
+    const pct = Math.round(a.ratio * 100);
+    const kpi = (label, val, ok, sub) => `<div class="kpi ${ok === true ? 'good' : ok === false ? 'bad' : ''}"><b>${val}</b><span>${label}</span>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    const hints = [];
+    a.issues.forEach(i => hints.push(`<li><b>${i.msg}</b>${i.ctx ? `<br><span class="ctx">${h(i.ctx)}</span>` : ''}</li>`));
+    if (a.repeats.length) hints.push(`<li><b>Wortwiederholungen:</b> ${a.repeats.map(([wd, n]) => `«${h(wd)}» ${n}×`).join(', ')} – suche Synonyme oder Pronomen.</li>`);
+    if (a.starters.length) hints.push(`<li><b>Gleiche Satzanfänge:</b> ${a.starters.map(([wd, n]) => `«${h(wd)}» ${n}×`).join(', ')}. ${a.starterHint}</li>`);
+    if (a.longS.length) hints.push(`<li><b>${a.longS.length} sehr lange${a.longS.length === 1 ? 'r Satz' : ' Sätze'}</b> (über 30 Wörter) – lieber aufteilen.</li>`);
+    if (a.avg && a.avg < 6) hints.push(`<li><b>Sehr kurze Sätze</b> (Ø ${a.avg.toFixed(1)} Wörter) – verbinde Sätze mit «weil», «obwohl», «deshalb» …</li>`);
+    if (a.paragraphs < a.needPar) hints.push(`<li><b>Absätze:</b> Gliedere deinen Text in mindestens ${a.needPar} Abschnitte (Leerzeile dazwischen).</li>`);
+    if (a.conns.length < 4) hints.push(`<li><b>Verbindungswörter:</b> Nur ${a.conns.length} gefunden – sie machen den Text flüssiger.</li>`);
+    if (a.ratio < 0.95) hints.push(`<li><b>Umfang:</b> Es fehlen noch ca. ${w.minWords - a.words} Wörter.</li>`);
+
+    const sel = (r, val) => `<label class="crit"><span><b>${r.name}</b>${r.weight > 1 ? ' <em class="pill">×2</em>' : ''}${r.auto ? ' <small class="muted">Vorschlag aus der Analyse</small>' : ' <small class="muted">bitte selbst einschätzen</small>'}</span>
+      <select data-c="${r.id}">${r.levels.map((l, n) => `<option value="${n}" ${n === val ? 'selected' : ''}>${n} – ${l}</option>`).join('')}</select></label>`;
+    const start = Object.assign({ inhalt: 2 }, a.sug);
+    box.innerHTML = `
+      <h2>📝 Beurteilung</h2>
+      <div class="kpis">
+        ${kpi('Wörter', a.words, a.ratio >= 0.95 ? true : a.ratio < 0.8 ? false : null, `${pct} % von ${w.minWords}`)}
+        ${kpi('Absätze', a.paragraphs, a.paragraphs >= a.needPar, `Ziel: ${a.needPar}+`)}
+        ${kpi('Ø Satzlänge', a.avg.toFixed(1), a.avg >= 8 && a.avg <= 22, `${a.sentences} Sätze`)}
+        ${kpi('Verbindungswörter', a.conns.length, a.conns.length >= 4, a.conns.slice(0, 4).join(', '))}
+      </div>
+      ${hints.length ? `<section class="panel"><h3>Das kannst du verbessern</h3><ul class="hints">${hints.join('')}</ul></section>`
+        : '<p class="notebox">🌟 Die automatische Analyse hat keine typischen Fehler gefunden. Lies den Text trotzdem noch einmal laut durch!</p>'}
+      <section class="panel">
+        <h3>Kriterienraster</h3>
+        <p class="muted small">Die Analyse schlägt Punkte vor. Den Inhalt kann nur ein Mensch beurteilen – schätze dich ehrlich ein oder lass Eltern bzw. eine Lehrperson bewerten.</p>
+        ${W.RUBRIC.map(r => sel(r, start[r.id])).join('')}
+        <label class="crit"><span><b>Beurteilt von</b></span><input id="evby" type="text" maxlength="30" placeholder="z. B. selbst, Papa, Lehrerin"></label>
+        <div class="gradebox"><span>Note</span><b id="evgrade">–</b><small id="evpts"></small></div>
+        <button class="btn" id="evsave" style="--sc:${s.color}">Beurteilung speichern (+50 Lernfranken)</button>
+      </section>
+      <p class="muted small">Hinweis: Die automatische Analyse erkennt typische Fehler, aber nicht alle – und sie versteht den Inhalt nicht. Für eine echte Korrektur den Text einer Lehrperson zeigen.</p>`;
+    const scores = () => Object.fromEntries([...box.querySelectorAll('select[data-c]')].map(x => [x.dataset.c, Number(x.value)]));
+    const upd = () => {
+      const g = W.grade(scores());
+      const el = box.querySelector('#evgrade');
+      el.textContent = fmtGrade(g.grade);
+      el.className = g.grade >= 4 ? 'good' : 'bad';
+      box.querySelector('#evpts').textContent = `${g.pts} / ${g.max} Punkte`;
+    };
+    box.querySelectorAll('select[data-c]').forEach(x => x.addEventListener('change', upd));
+    upd();
+    box.querySelector('#evsave').addEventListener('click', () => {
+      const sc = scores(), g = W.grade(sc);
+      const st = store.state;
+      (st.writingEvals || (st.writingEvals = [])).push({ key, date: Date.now(), words: a.words, grade: g.grade, scores: sc, by: box.querySelector('#evby').value.trim() });
+      if (st.writingEvals.length > 100) st.writingEvals.shift();
+      store.save();
+      BMP.motiv.addPoints(50, `Text beurteilt (Note ${fmtGrade(g.grade)}) ✍️`);
+      writingTask(s.id, Number(key.split('/')[1]));
+    });
   }
 
   /* ---------- Fortschritt & Einstellungen ---------- */
