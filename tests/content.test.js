@@ -147,3 +147,17 @@ test('Motivation: Stufen, Hochrechnung, Tagestraining', () => {
   mix.forEach(i => validate(i, 'dailyMix'));
   assert.ok(M.BADGES.every(b => typeof b.test() === 'boolean'));
 });
+
+test('Countdown: Phasen und Tagesziel passen sich an', () => {
+  const M = BMP.motiv, st = BMP.store.state;
+  st.examDate = '';
+  assert.strictEqual(M.examDate(), '2027-03-16');
+  const names = [200, 100, 45, 20, 5, 0, -3].map(d => M.phase(d).id).join(',');
+  assert.strictEqual(names, 'basis,aufbau,endspurt,countdown,final,heute,vorbei');
+  assert.strictEqual(M.daysLeft(new Date('2027-03-15T22:00:00')), 1);
+  assert.strictEqual(M.daysLeft(new Date('2027-03-16T09:00:00')), 0);
+  st.dailyGoal = 20; st.autoGoal = true;
+  assert.ok(M.goal() >= 20);
+  st.autoGoal = false;
+  assert.strictEqual(M.goal(), 20);
+});

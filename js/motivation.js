@@ -142,8 +142,8 @@
       const lvBefore = level(st().points - (ok ? 10 : 2));
       if (new Date().getHours() < 7) st().earlyBird = true;
       const day = store.todayStats();
-      const goal = st().dailyGoal || 20;
-      if (!day.goalDone && day.n >= goal) {
+      const goal = M.goal();
+      if (goal && !day.goalDone && day.n >= goal) {
         day.goalDone = true;
         const streak = store.streak();
         const bonus = 50 + 10 * Math.min(streak, 10);
@@ -216,6 +216,62 @@
       if (it && !out.some(o => o.q === it.q)) out.push(it);
     }
     return BMP.U.shuffle(out);
+  };
+
+  /* ---------- Prüfungs-Countdown mit Phasen ---------- */
+  const EXAM_DEFAULT = '2027-03-16';
+  const dayStart = d => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  M.examDate = () => st().examDate || EXAM_DEFAULT;
+  M.examTime = () => new Date(M.examDate() + 'T08:00:00');
+  M.daysLeft = (from) => Math.round((dayStart(M.examDate() + 'T00:00:00') - dayStart(from || new Date())) / 86400000);
+
+  const PHASES = [
+    { min: 121, id: 'basis', name: 'Grundlagen', icon: '🌱', goal: 15,
+      msgs: ['Jetzt legst du das Fundament. Wer früh startet, hat am Schluss keinen Stress.',
+        'Noch ist Zeit – aber nur, wenn du sie jetzt nutzt.', 'Jede Aufgabe heute ist eine weniger, die dir im März Bauchweh macht.'] },
+    { min: 61, id: 'aufbau', name: 'Aufbau', icon: '🧱', goal: 20,
+      msgs: ['Weniger als vier Monate. Jetzt zählt Regelmässigkeit – jeden Tag!', 'Schwache Themen jetzt angehen, nicht erst im Februar.',
+        'Mathe zählt doppelt. Hast du heute schon Mathe gemacht?'] },
+    { min: 31, id: 'endspurt', name: 'Endspurt', icon: '🏃‍♀️', goal: 30,
+      msgs: ['Endspurt! Weniger als zwei Monate – jetzt wird es ernst.', 'Mach jede Woche mindestens eine Prüfungssimulation pro Fach.',
+        'Kein Tag ohne Training. Die Konkurrenz übt auch.'] },
+    { min: 15, id: 'countdown', name: 'Countdown', icon: '⏳', goal: 40,
+      msgs: ['Nur noch wenige Wochen. Jeder Tag zählt jetzt doppelt!', 'Originalprüfungen lösen – unter echten Bedingungen, mit Timer.',
+        'Jetzt nicht nachlassen. Das Fehlerheft muss leer werden!'] },
+    { min: 1, id: 'final', name: 'Finale', icon: '🔥', goal: 50,
+      msgs: ['Die Prüfung steht vor der Tür. Gib jetzt alles!', 'Letzte Lücken schliessen – Fehlerheft und Merkblätter!',
+        'Du hast so viel geübt. Jetzt noch die letzten Meter!'] },
+    { min: 0, id: 'heute', name: 'Prüfungstag', icon: '🍀', goal: 0,
+      msgs: ['Heute ist der Tag! Ruhig atmen, Aufgaben genau lesen, du schaffst das. Viel Glück!'] },
+    { min: -Infinity, id: 'vorbei', name: 'Geschafft', icon: '🎓', goal: 0,
+      msgs: ['Die Prüfung ist vorbei. Egal wie es ausgeht – du hast alles gegeben!'] }
+  ];
+  M.phase = (days) => {
+    const d = days == null ? M.daysLeft() : days;
+    const p = PHASES.find(x => d >= x.min);
+    const dayNo = Math.floor(Date.now() / 86400000);
+    return Object.assign({ days: d, msg: p.msgs[dayNo % p.msgs.length] }, p);
+  };
+  // Tagesziel passt sich der Phase an (nie tiefer als das selbst gewählte Ziel)
+  M.goal = () => {
+    const own = st().dailyGoal || 20;
+    return st().autoGoal === false ? own : Math.max(own, M.phase().goal);
+  };
+  // Soll/Ist seit Trainingsbeginn
+  M.plan = () => {
+    const keys = Object.keys(st().daily).sort();
+    if (!keys.length) return null;
+    const start = new Date(keys[0] + 'T00:00:00'), today = dayStart(new Date());
+    let expected = 0;
+    for (let d = new Date(start); d < today; d.setDate(d.getDate() + 1)) {
+      expected += Math.max(st().autoGoal === false ? 0 : M.phase(M.daysLeft(d)).goal, st().dailyGoal || 20);
+    }
+    const done = keys.filter(k => k < store.today()).reduce((a, k) => a + st().daily[k].n, 0);
+    return { expected, done, diff: done - expected };
+  };
+  M.lastExamDays = (subject) => {
+    const e = st().exams.filter(x => !subject || x.subject === subject).pop();
+    return e ? Math.floor((Date.now() - e.date) / 86400000) : null;
   };
 
   M.WEIGHTS = WEIGHTS;
