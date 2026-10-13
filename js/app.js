@@ -346,7 +346,7 @@
         <label class="small muted" for="calcin">Nebenrechnung – z. B. <code>84:6·5</code> oder <code>(3+4)·2</code></label>
         <div class="calcrow"><input id="calcin" type="text" inputmode="${touch() ? 'none' : 'text'}" autocomplete="off" spellcheck="false" placeholder="Rechnung eingeben">
           <output id="calcout" aria-live="polite">=</output></div>
-        <div class="calcops">${['+', '×', ':', '(', ')', '^', '√', '%'].map(o => `<button type="button" class="key key-op" data-op="${o}">${o}</button>`).join('')}
+        <div class="calcops">${['+', '−', '×', ':', '⌫', '(', ')', '^', '√', '%'].map(o => `<button type="button" class="key key-op" data-op="${o}" aria-label="${o === '⌫' ? 'Löschen' : o}">${o}</button>`).join('')}
           <button type="button" class="btn ghost" id="calctake">Ergebnis übernehmen ↑</button></div>
       </div>` : ''}`;
   }
@@ -387,7 +387,11 @@
       calcin.addEventListener('focus', () => { target = calcin; });
       ans.addEventListener('focus', () => { target = ans; });
       $app.querySelectorAll('.calcops [data-op]').forEach(b => b.addEventListener('click', () => {
-        target = calcin; calcin.value += b.dataset.op === '×' ? '·' : b.dataset.op; update();
+        target = calcin;
+        const op = b.dataset.op;
+        if (op === '⌫') calcin.value = calcin.value.slice(0, -1);
+        else calcin.value += op === '×' ? '·' : op === '−' ? '-' : op;
+        update();
       }));
       $app.querySelector('#calctake').addEventListener('click', () => {
         const v = BMP.calc(calcin.value);
