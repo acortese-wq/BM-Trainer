@@ -10,7 +10,7 @@ const root = path.join(__dirname, '..');
 const ctx = { console, Math, Date, Number, String, Array, Object, JSON, Set };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
-for (const f of ['js/core.js', 'js/data/mathe.js', 'js/data/deutsch.js', 'js/data/englisch.js', 'js/data/hoeren.js', 'js/data/italienisch.js', 'js/data/reglement.js', 'js/data/originale.js', 'js/motivation.js', 'js/speech.js', 'js/writing.js']) {
+for (const f of ['js/core.js', 'js/data/mathe.js', 'js/data/deutsch.js', 'js/data/englisch.js', 'js/data/hoeren.js', 'js/data/italienisch.js', 'js/data/reglement.js', 'js/data/sprueche.js', 'js/data/originale.js', 'js/motivation.js', 'js/speech.js', 'js/writing.js']) {
   vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f });
 }
 const BMP = ctx.BMP;
@@ -252,4 +252,21 @@ test('Schreibtraining: Analyse und Note', () => {
   assert.strictEqual(W.grade({ inhalt: 3, aufbau: 3, sprache: 3, richtigkeit: 3, form: 3 }).grade, 6);
   assert.strictEqual(W.grade({ inhalt: 0, aufbau: 0, sprache: 0, richtigkeit: 0, form: 0 }).grade, 1);
   assert.strictEqual(W.grade({ inhalt: 2, aufbau: 2, sprache: 2, richtigkeit: 1, form: 1 }).grade, 4);
+});
+
+test('Spruch des Tages: bis zur Prüfung jeden Tag ein neuer', () => {
+  const M = BMP.motiv, st = BMP.store.state;
+  st.examDate = '2027-03-16';
+  const list = BMP.SPRUECHE;
+  assert.strictEqual(new Set(list).size, list.length, 'doppelte Sprüche');
+  assert.ok(list.every(q => !q.includes('ß')), 'ß in Sprüchen');
+  const seen = new Set();
+  for (let d = new Date('2026-10-13T12:00:00'); d < new Date('2027-03-16T00:00:00'); d.setDate(d.getDate() + 1)) {
+    const q = M.quoteOfDay(new Date(d));
+    assert.ok(q && !seen.has(q), 'Wiederholung am ' + d.toDateString() + ': ' + q);
+    seen.add(q);
+  }
+  assert.ok(M.quoteOfDay(new Date('2027-03-15T10:00:00')).startsWith('Morgen ist dein Tag'));
+  assert.strictEqual(M.quoteOfDay(new Date('2027-03-16T07:00:00')), BMP.SPRUCH_PRUEFUNG);
+  assert.ok(M.quoteOfDay(new Date('2027-04-01T10:00:00')));
 });
