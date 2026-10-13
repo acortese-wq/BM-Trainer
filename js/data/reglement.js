@@ -21,6 +21,7 @@
           '<b>Art. 14 Bekanntgabe:</b> Das Resultat kommt spätestens <b>drei Wochen</b> nach der Prüfung schriftlich.',
           '<b>Art. 15 Gültigkeit:</b> Eine bestandene Prüfung gilt für den laufenden Lehrgang und die zwei folgenden Kalenderjahre.',
           '<b>Art. 16 Rechtsmittel:</b> Beschwerde innert 10 Tagen schriftlich an das Erziehungs-, Kultur- und Umweltschutzdepartement GR.',
+          '<b>Alte Prüfungen:</b> <a href="https://www.kvchur.ch/alte-aufnahmepruefungen" target="_blank" rel="noopener">kvchur.ch/alte-aufnahmepruefungen</a> – dort siehst du auch, wie lange die Prüfungen dauern und welche Hilfsmittel vorgesehen sind.',
           '<b>Nicht im Reglement geregelt:</b> Prüfungsdauer, erlaubte Hilfsmittel (Taschenrechner) und ein Hörverständnis. Diese Angaben stehen im Aufgebot bzw. in der Ausschreibung der Schule (Art. 7).'
         ],
         app: 'Die Hochrechnung rechnet nach Art. 11/12: (2 × Mathe + Deutsch + Englisch) : 4, mit Noten auf halbe Noten gerundet, höchstens eine Note unter 4. Geometrie ist als «nicht geprüft» markiert und kommt weder im Tagestraining noch in der Prüfungssimulation vor.',
