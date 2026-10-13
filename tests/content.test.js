@@ -204,3 +204,35 @@ test('Nebenrechnung: Formelrechner und Minuszahlen', () => {
   assert.ok(BMP.check({ type: 'number', answer: -3 }, '-3').ok);
   assert.ok(BMP.check({ type: 'number', answer: 0.5 }, '1/2').ok);
 });
+
+test('Kurzantworten: nur die geänderten Wörter genügen', () => {
+  const find = id => { for (const s of BMP.subjects) { const i = s.items.find(x => x.id === id); if (i) return Object.assign({ subject: s.id }, i); } };
+  const ok = (id, g) => BMP.check(find(id), g).ok;
+  // Satzumformungen: Kurzform oder ganzer Satz
+  assert.ok(ok('d-z8', 'brachte') && ok('d-z8', 'Er brachte das Paket.'));
+  assert.ok(!ok('d-z8', 'bringte'));
+  assert.ok(ok('d-z11', 'bin geschwommen') && !ok('d-z11', 'geschwommen') && !ok('d-z11', 'habe geschwommen'));
+  assert.ok(ok('d-z12', 'hat geschrieben'));
+  assert.ok(ok('e-q8', 'didn’t go') && ok('e-q8', 'did not go') && !ok('e-q8', "didn't went"));
+  assert.ok(ok('e-q10', "can't") && ok('e-q10', 'cannot') && !ok('e-q10', 'not'));
+  // Lücken: Artikel allein, wenn das Nomen gleich bleibt; sonst beides
+  assert.ok(ok('d-f11', 'dem') && ok('d-f11', 'Ich fahre mit dem Bus zur Schule.'));
+  assert.ok(!ok('d-f12', 'des') && ok('d-f12', 'des Regens'));
+  assert.ok(ok('d-z13', 'Er sagt, er sei müde.'));
+  assert.ok(ok('e-q9', 'Does she speak Italian?'));
+  // Einzelwörter: keine Teilantwort
+  assert.ok(!ok('e-c10', 'more') && ok('e-c10', 'more expensive'));
+  // Generatoren: ganzer Satz bei Lücken
+  const en = BMP.getSubject('englisch');
+  for (let k = 0; k < 50; k++) {
+    const it = Object.assign({ subject: 'englisch' }, en.generators.verbs[1]());
+    const pp = it.answer[0];
+    assert.ok(BMP.check(it, 'She has ' + pp + '.').ok, it.q);
+  }
+  const it = BMP.getSubject('italienisch');
+  for (let k = 0; k < 50; k++) {
+    const x = it.generators.passato[0]();
+    const subj = x.q.match(/: (.*) ___/)[1].replace(/\s*\(.*\)/, '');
+    assert.ok(BMP.check(x, subj + ' ' + x.answer[0]).ok, x.q + ' → ' + subj + ' ' + x.answer[0]);
+  }
+});
