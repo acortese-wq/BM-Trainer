@@ -398,6 +398,6 @@ label.check input { width: 1.2rem; height: 1.2rem; }
 .calcrow input { flex: 1; min-width: 0; font: inherit; padding: .55rem .7rem; min-height: 44px; border: 2px solid var(--border);
   border-radius: var(--radius); background: var(--surface); color: var(--text); }
 .calcrow output { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 4.5rem; text-align: right; }
-.calcops { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
-.calcops .key { font-size: 1rem; min-height: 40px; }
+.calcops { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.calcops .key { font-size: 1.15rem; min-height: 44px; }
 .calcops .btn { grid-column: 1 / -1; margin-top: .3rem; }

@@ -1,5 +1,5 @@
 /* BM-Trainer – Service Worker: App offline verfügbar machen */
-const CACHE = 'bm-trainer-v8';
+const CACHE = 'bm-trainer-v9';
 const FILES = [
   './', 'index.html', 'css/style.css', 'manifest.webmanifest',
   'js/core.js', 'js/app.js', 'js/data/mathe.js', 'js/data/deutsch.js', 'js/data/englisch.js', 'js/data/hoeren.js', 'js/data/reglement.js', 'js/speech.js', 'js/data/italienisch.js', 'js/data/originale.js', 'js/motivation.js',
