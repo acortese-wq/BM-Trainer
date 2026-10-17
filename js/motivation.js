@@ -4,8 +4,10 @@
   const BMP = root.BMP;
   const store = BMP.store;
 
-  /* Lernfranken pro Aufgabe: 5 für eine richtige Antwort, 1 für den Versuch */
-  const PER_RIGHT = 5, PER_TRY = 1;
+  /* Lernfranken pro Aufgabe sinken mit der Karrierestufe:
+     richtig 10 (Schnupperlernende) … 2 (Direktorin); Versuch im Verhältnis 5 : 1 (2 … 0) */
+  const perRight = points => Math.max(2, 10 - level(points || 0).index);
+  const perTry = points => Math.round(perRight(points) / 5);
 
   /* ---------- Karrierestufen (Lernfranken) ---------- */
   const LEVELS = [
@@ -138,10 +140,10 @@
   }
 
   const M = {
-    LEVELS, BADGES, level, projection, toast, confetti, PER_RIGHT, PER_TRY,
+    LEVELS, BADGES, level, projection, toast, confetti, perRight, perTry,
     onAnswer(item, ok) {
       // Punkte ohne Toast (sonst zu viel Rummel) – sichtbar im Feedback
-      const earned = ok ? PER_RIGHT : PER_TRY;
+      const earned = ok ? perRight(st().points) : perTry(st().points);
       st().points = (st().points || 0) + earned;
       const lvBefore = level(st().points - earned);
       if (new Date().getHours() < 7) st().earlyBird = true;

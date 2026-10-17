@@ -420,3 +420,5 @@ label.check input { width: 1.2rem; height: 1.2rem; }
 .gradebox { display: flex; align-items: baseline; gap: .7rem; margin: 1rem 0; }
 .gradebox b { font-size: 2.2rem; }
 .gradebox small { color: var(--muted); }
+.levels .lv { display: flex; flex-direction: column; }
+.levels .lv small { margin-left: 0; font-size: .78rem; color: var(--muted); font-weight: 400; }

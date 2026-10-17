@@ -271,13 +271,17 @@ test('Spruch des Tages: bis zur Prüfung jeden Tag ein neuer', () => {
   assert.ok(M.quoteOfDay(new Date('2027-04-01T10:00:00')));
 });
 
-test('Lernfranken pro Aufgabe: 5 richtig, 1 Versuch', () => {
+test('Lernfranken pro Aufgabe sinken mit der Stufe (10 … 2)', () => {
   const M = BMP.motiv, st = BMP.store.state;
-  st.points = 0; st.dailyGoal = 1000; st.autoGoal = false;
+  const right = M.LEVELS.map(l => M.perRight(l.min));
+  const tries = M.LEVELS.map(l => M.perTry(l.min));
+  assert.strictEqual(right.join(','), '10,9,8,7,6,5,4,3,2');
+  assert.strictEqual(tries.join(','), '2,2,2,1,1,1,1,1,0');
+  st.dailyGoal = 100000; st.autoGoal = false;
   const item = { subject: 'mathe', topic: 'grundop', id: 'x', q: 'x', type: 'number', answer: 1 };
-  BMP.store.record(item, true);
-  assert.strictEqual(M.onAnswer(item, true), 5);
-  BMP.store.record(item, false);
-  assert.strictEqual(M.onAnswer(item, false), 1);
-  assert.strictEqual(st.points, 6);
+  st.points = 0;
+  BMP.store.record(item, true); assert.strictEqual(M.onAnswer(item, true), 10);
+  st.points = 12500;
+  BMP.store.record(item, true); assert.strictEqual(M.onAnswer(item, true), 2);
+  BMP.store.record(item, false); assert.strictEqual(M.onAnswer(item, false), 0);
 });
