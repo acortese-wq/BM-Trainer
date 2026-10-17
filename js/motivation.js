@@ -4,6 +4,9 @@
   const BMP = root.BMP;
   const store = BMP.store;
 
+  /* Lernfranken pro Aufgabe: 5 für eine richtige Antwort, 1 für den Versuch */
+  const PER_RIGHT = 5, PER_TRY = 1;
+
   /* ---------- Karrierestufen (Lernfranken) ---------- */
   const LEVELS = [
     { min: 0, name: 'Schnupperlernende', icon: '🌱' },
@@ -135,11 +138,12 @@
   }
 
   const M = {
-    LEVELS, BADGES, level, projection, toast, confetti,
+    LEVELS, BADGES, level, projection, toast, confetti, PER_RIGHT, PER_TRY,
     onAnswer(item, ok) {
       // Punkte ohne Toast (sonst zu viel Rummel) – sichtbar im Feedback
-      st().points = (st().points || 0) + (ok ? 10 : 2);
-      const lvBefore = level(st().points - (ok ? 10 : 2));
+      const earned = ok ? PER_RIGHT : PER_TRY;
+      st().points = (st().points || 0) + earned;
+      const lvBefore = level(st().points - earned);
       if (new Date().getHours() < 7) st().earlyBird = true;
       const day = store.todayStats();
       const goal = M.goal();
@@ -156,7 +160,7 @@
         if (lv.index > lvBefore.index) { toast(`${lv.icon} <b>Beförderung!</b><br>Du bist jetzt <b>${lv.name}</b>.`, 'big'); confetti(); }
       }
       checkBadges();
-      return ok ? 10 : 2;
+      return earned;
     },
     onRound(correct, total) {
       if (total >= 5 && correct === total) {

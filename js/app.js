@@ -212,7 +212,7 @@
       <section class="panel">
         <h2 class="ph">Karrierestufen <small>CHF ${U.fmt(st.points || 0, 0)}</small></h2>
         <ol class="levels">${M.LEVELS.map((l, i) => `<li class="${i < lv.index ? 'done' : i === lv.index ? 'cur' : ''}"><span>${l.icon}</span> ${l.name} <small>ab ${U.fmt(l.min, 0)}</small></li>`).join('')}</ol>
-        <p class="muted small">Lernfranken gibt es für jede Aufgabe (+10 richtig, +2 für den Versuch), fürs Tagesziel (mit Treuebonus für Serien), für perfekte Runden und für Prüfungssimulationen.</p>
+        <p class="muted small">Lernfranken gibt es für jede Aufgabe (+${BMP.motiv.PER_RIGHT} richtig, +${BMP.motiv.PER_TRY} für den Versuch), fürs Tagesziel (mit Treuebonus für Serien), für perfekte Runden und für Prüfungssimulationen.</p>
       </section>
       <ul class="badges">${M.BADGES.map(b => {
         const t = st.badges[b.id];

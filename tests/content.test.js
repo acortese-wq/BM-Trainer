@@ -270,3 +270,14 @@ test('Spruch des Tages: bis zur Prüfung jeden Tag ein neuer', () => {
   assert.strictEqual(M.quoteOfDay(new Date('2027-03-16T07:00:00')), BMP.SPRUCH_PRUEFUNG);
   assert.ok(M.quoteOfDay(new Date('2027-04-01T10:00:00')));
 });
+
+test('Lernfranken pro Aufgabe: 5 richtig, 1 Versuch', () => {
+  const M = BMP.motiv, st = BMP.store.state;
+  st.points = 0; st.dailyGoal = 1000; st.autoGoal = false;
+  const item = { subject: 'mathe', topic: 'grundop', id: 'x', q: 'x', type: 'number', answer: 1 };
+  BMP.store.record(item, true);
+  assert.strictEqual(M.onAnswer(item, true), 5);
+  BMP.store.record(item, false);
+  assert.strictEqual(M.onAnswer(item, false), 1);
+  assert.strictEqual(st.points, 6);
+});
