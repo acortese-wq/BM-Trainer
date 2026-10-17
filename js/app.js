@@ -211,8 +211,9 @@
     $app.innerHTML = `${header('Abzeichen & Karriere', '#/')}
       <section class="panel">
         <h2 class="ph">Karrierestufen <small>CHF ${U.fmt(st.points || 0, 0)}</small></h2>
-        <ol class="levels">${M.LEVELS.map((l, i) => `<li class="${i < lv.index ? 'done' : i === lv.index ? 'cur' : ''}"><span>${l.icon}</span> ${l.name} <small>ab ${U.fmt(l.min, 0)}</small></li>`).join('')}</ol>
-        <p class="muted small">Lernfranken gibt es für jede Aufgabe (+10 richtig, +2 für den Versuch), fürs Tagesziel (mit Treuebonus für Serien), für perfekte Runden und für Prüfungssimulationen.</p>
+        <ol class="levels">${M.LEVELS.map((l, i) => `<li class="${i < lv.index ? 'done' : i === lv.index ? 'cur' : ''}"><span>${l.icon}</span>
+          <span class="lv"><span>${l.name}</span><small>ab CHF ${U.fmt(l.min, 0)} · richtig +${M.perRight(l.min)}, Versuch +${M.perTry(l.min)}</small></span></li>`).join('')}</ol>
+        <p class="muted small">Je höher deine Stufe, desto weniger Lernfranken gibt es pro Aufgabe – Profis müssen mehr leisten! Auf deiner Stufe: <b>+${M.perRight(st.points)} für richtig</b>, +${M.perTry(st.points)} für den Versuch. Dazu Boni fürs Tagesziel (mit Treuebonus für Serien), für perfekte Runden, Prüfungssimulationen und Schreibtraining.</p>
       </section>
       <ul class="badges">${M.BADGES.map(b => {
         const t = st.badges[b.id];
