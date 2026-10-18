@@ -422,3 +422,8 @@ label.check input { width: 1.2rem; height: 1.2rem; }
 .gradebox small { color: var(--muted); }
 .levels .lv { display: flex; flex-direction: column; }
 .levels .lv small { margin-left: 0; font-size: .78rem; color: var(--muted); font-weight: 400; }
+.restore { margin-top: .6rem; }
+.restore summary, .panel details summary { cursor: pointer; font-weight: 600; }
+.restore input[type=file] { display: block; margin: .5rem 0; max-width: 100%; }
+.restore textarea { width: 100%; font: inherit; font-size: .8rem; margin: .4rem 0; }
+a.backup-hint { display: block; text-decoration: none; color: var(--text); margin: .8rem 0; }

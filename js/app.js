@@ -8,6 +8,7 @@
   let cleanup = null; // z. B. Timer beim Seitenwechsel stoppen
 
   store.load();
+  store.persist();
 
   /* ---------- Hilfen ---------- */
   const h = U.esc;
@@ -125,6 +126,8 @@
         </ul>
       </section>
 
+      ${(st.total || 0) >= 30 && (!st.lastBackup || Date.now() - st.lastBackup > 7 * 86400000)
+        ? `<a class="notebox backup-hint" href="#/fortschritt">💾 <b>Sichere deinen Fortschritt!</b> ${st.lastBackup ? 'Die letzte Sicherung ist über eine Woche alt.' : 'Du hast noch keine Sicherung.'} Dauert 10 Sekunden ›</a>` : ''}
       <section class="today panel">
         ${ring(today.n / goal, today.n >= goal ? '✓' : today.n + '/' + goal, today.n >= goal ? 'geschafft!' : 'heute')}
         <div class="today-txt">
@@ -921,8 +924,32 @@
         <button class="btn" type="submit">Speichern</button>
         <span id="saved" class="hint" aria-live="polite"></span>
       </form>
+      <h2>💾 Sicherung</h2>
       <section class="panel">
-        <p>Dein Fortschritt wird nur auf diesem Gerät im Browser gespeichert.</p>
+        <p>Dein Fortschritt ist nur auf diesem Gerät gespeichert. <b>Sichere ihn regelmässig</b> – zum Beispiel per WhatsApp oder E-Mail an dich selbst. So geht nichts verloren, auch nicht bei einem neuen Handy.</p>
+        <p class="muted small">${st.lastBackup ? 'Letzte Sicherung: ' + new Date(st.lastBackup).toLocaleDateString('de-CH') : 'Noch keine Sicherung gemacht.'}</p>
+        <div class="actions">
+          <button class="btn" id="bkfile">💾 Sicherung herunterladen</button>
+          ${navigator.share ? '<button class="btn ghost" id="bkshare">📤 Sicherung teilen</button>' : ''}
+          <button class="btn ghost" id="bkcopy">📋 Als Code kopieren</button>
+        </div>
+        <details class="restore"><summary>📥 Sicherung wiederherstellen</summary>
+          <p class="small">Datei auswählen oder den Sicherungscode einfügen. <b>Achtung:</b> Der aktuelle Stand wird ersetzt.</p>
+          <input type="file" id="bkin" accept=".json,application/json,text/plain">
+          <textarea id="bktext" rows="3" placeholder="Sicherungscode hier einfügen"></textarea>
+          <button class="btn ghost" id="bkload">Wiederherstellen</button>
+        </details>
+        <p id="bkmsg" class="hint" aria-live="polite"></p>
+      </section>
+      <h2>👪 Für Eltern</h2>
+      <section class="panel">
+        <details><summary>Lernkonto korrigieren (z. B. nach Datenverlust)</summary>
+          <label class="crit"><span>Kontostand in Lernfranken</span><input id="ptsfix" type="number" min="0" step="1" value="${st.points || 0}"></label>
+          <p class="muted small">Stufen: ${BMP.motiv.LEVELS.map(l => `${l.name} ab ${U.fmt(l.min, 0)}`).join(' · ')}</p>
+          <button class="btn ghost" id="ptsset">Kontostand setzen</button>
+        </details>
+      </section>
+      <section class="panel">
         <button class="btn warn" id="reset">Fortschritt zurücksetzen</button>
       </section>`;
     $app.querySelector('#set').addEventListener('submit', e => {
@@ -936,8 +963,53 @@
       store.save();
       $app.querySelector('#saved').textContent = 'Gespeichert ✓';
     });
+    const msg = t => { $app.querySelector('#bkmsg').textContent = t; };
+    const fname = () => 'bm-trainer-sicherung-' + store.today() + '.json';
+    const markBackup = () => { st.lastBackup = Date.now(); store.save(); };
+    $app.querySelector('#bkfile').addEventListener('click', () => {
+      const blob = new Blob([store.exportData()], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = fname();
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      markBackup(); msg('✓ Sicherung gespeichert (' + fname() + ').');
+    });
+    const share = $app.querySelector('#bkshare');
+    if (share) share.addEventListener('click', async () => {
+      try {
+        const file = new File([store.exportData()], fname(), { type: 'application/json' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'BM-Trainer Sicherung' });
+        else await navigator.share({ title: 'BM-Trainer Sicherung', text: btoa(unescape(encodeURIComponent(store.exportData()))) });
+        markBackup(); msg('✓ Sicherung geteilt.');
+      } catch (e) { msg('Teilen abgebrochen.'); }
+    });
+    $app.querySelector('#bkcopy').addEventListener('click', async () => {
+      const code = btoa(unescape(encodeURIComponent(store.exportData())));
+      try { await navigator.clipboard.writeText(code); markBackup(); msg('✓ Sicherungscode kopiert – füge ihn z. B. in eine Notiz oder Nachricht an dich selbst ein.'); }
+      catch (e) { $app.querySelector('#bktext').value = code; $app.querySelector('.restore').open = true; msg('Kopieren nicht möglich – der Code steht im Feld unten, bitte manuell kopieren.'); }
+    });
+    const doImport = text => {
+      if (!confirm('Aktuellen Stand durch die Sicherung ersetzen?')) return;
+      const r = store.importData(text);
+      if (r.ok) { msg('✓ Sicherung wiederhergestellt.'); updateTop(); setTimeout(progress, 600); } else msg('✗ ' + r.msg);
+    };
+    $app.querySelector('#bkin').addEventListener('change', e => {
+      const f = e.target.files[0]; if (!f) return;
+      const rd = new FileReader(); rd.onload = () => doImport(rd.result); rd.readAsText(f);
+    });
+    $app.querySelector('#bkload').addEventListener('click', () => {
+      const t = $app.querySelector('#bktext').value.trim();
+      if (!t) { msg('Bitte zuerst eine Datei wählen oder den Code einfügen.'); return; }
+      doImport(t);
+    });
+    $app.querySelector('#ptsset').addEventListener('click', () => {
+      const v = Math.max(0, Math.round(Number($app.querySelector('#ptsfix').value) || 0));
+      if (!confirm(`Kontostand auf CHF ${U.fmt(v, 0)} setzen? Stufe: ${BMP.motiv.level(v).name}`)) return;
+      st.points = v; store.save(); updateTop(); progress();
+    });
     $app.querySelector('#reset').addEventListener('click', () => {
-      if (confirm('Wirklich den ganzen Fortschritt (Statistik, Fehlerheft, Prüfungen, Entwürfe) löschen?')) { store.reset(); progress(); }
+      if (confirm('Wirklich den ganzen Fortschritt (Statistik, Fehlerheft, Prüfungen, Entwürfe, Lernkonto) löschen? Tipp: vorher eine Sicherung herunterladen.')
+        && confirm('Ganz sicher? Das kann nicht rückgängig gemacht werden.')) { store.reset(); progress(); }
     });
   }
 
