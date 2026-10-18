@@ -336,6 +336,26 @@
     load, save,
     get state() { return state; },
     reset() { state = blank(); save(); },
+    /* Sicherung: ganzer Stand als Text (JSON) */
+    exportData() {
+      return JSON.stringify({ app: 'bm-trainer', version: 1, exported: new Date().toISOString(), state });
+    },
+    importData(text) {
+      let obj;
+      try { obj = JSON.parse(String(text).trim()); } catch (e) {
+        try { obj = JSON.parse(decodeURIComponent(escape(atob(String(text).trim())))); } catch (e2) { return { ok: false, msg: 'Das ist keine gültige Sicherung.' }; }
+      }
+      const data = obj && obj.app === 'bm-trainer' ? obj.state : obj;
+      if (!data || typeof data !== 'object' || typeof data.topics !== 'object' || !Array.isArray(data.exams)) return { ok: false, msg: 'Die Sicherung ist unvollständig.' };
+      state = Object.assign(blank(), data);
+      save();
+      return { ok: true };
+    },
+    /* Browser bitten, die Daten nicht automatisch zu löschen */
+    persist() {
+      try { if (root.navigator && navigator.storage && navigator.storage.persist) return navigator.storage.persist(); } catch (e) { /* egal */ }
+      return Promise.resolve(false);
+    },
     record(item, ok) {
       const k = item.subject + '/' + item.topic;
       const t = state.topics[k] || (state.topics[k] = { seen: 0, correct: 0, recent: [] });

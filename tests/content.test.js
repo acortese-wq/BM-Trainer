@@ -7,7 +7,7 @@ const path = require('path');
 const vm = require('vm');
 
 const root = path.join(__dirname, '..');
-const ctx = { console, Math, Date, Number, String, Array, Object, JSON, Set };
+const ctx = { console, Math, Date, Number, String, Array, Object, JSON, Set, atob, btoa, escape, unescape };
 ctx.globalThis = ctx;
 vm.createContext(ctx);
 for (const f of ['js/core.js', 'js/data/mathe.js', 'js/data/deutsch.js', 'js/data/englisch.js', 'js/data/hoeren.js', 'js/data/italienisch.js', 'js/data/reglement.js', 'js/data/sprueche.js', 'js/data/originale.js', 'js/motivation.js', 'js/speech.js', 'js/writing.js']) {
@@ -284,4 +284,22 @@ test('Lernfranken pro Aufgabe sinken mit der Stufe (10 … 2)', () => {
   st.points = 12500;
   BMP.store.record(item, true); assert.strictEqual(M.onAnswer(item, true), 2);
   BMP.store.record(item, false); assert.strictEqual(M.onAnswer(item, false), 0);
+});
+
+test('Sicherung: Export und Import', () => {
+  const s = BMP.store;
+  s.state.points = 1234; s.state.name = 'Lina'; s.state.topics['mathe/brueche'] = { seen: 5, correct: 4, recent: [1] };
+  const dump = s.exportData();
+  s.reset();
+  assert.strictEqual(s.state.points, 0);
+  assert.ok(s.importData(dump).ok);
+  assert.strictEqual(s.state.points, 1234);
+  assert.strictEqual(s.state.name, 'Lina');
+  const code = Buffer.from(dump, 'utf8').toString('base64');
+  s.reset();
+  assert.ok(s.importData(code).ok, 'Base64-Code');
+  assert.strictEqual(s.state.topics['mathe/brueche'].seen, 5);
+  assert.ok(!s.importData('hallo').ok);
+  assert.ok(!s.importData('{"foo":1}').ok);
+  assert.strictEqual(s.state.points, 1234, 'ungültiger Import darf nichts ändern');
 });
