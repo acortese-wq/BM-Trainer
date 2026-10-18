@@ -306,6 +306,21 @@
     return out;
   };
 
+  /* ---------- Hash (SHA-256) für Eltern-PIN und Prüfsumme ---------- */
+  async function sha256(text) {
+    const c = root.crypto && root.crypto.subtle;
+    if (c && root.TextEncoder) {
+      const buf = await c.digest('SHA-256', new root.TextEncoder().encode(text));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    // Rückfall ohne WebCrypto (z. B. sehr alte Browser): einfacher Hash
+    let h1 = 0x811c9dc5, h2 = 0x1b873593;
+    for (let i = 0; i < text.length; i++) { const ch = text.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 16777619); h2 = Math.imul(h2 ^ ch, 2246822507); }
+    return (h1 >>> 0).toString(16) + (h2 >>> 0).toString(16);
+  }
+  async function checkPin(p, pin) { return p.hash === await sha256(p.salt + ':' + String(pin).trim()); }
+  BMP.sha256 = sha256;
+
   /* ---------- Speicherung (localStorage) ---------- */
   const KEY = 'bm-trainer-v1';
   const blank = () => ({ topics: {}, exams: [], fehler: {}, days: [], drafts: {}, name: '', examDate: '',
@@ -335,22 +350,49 @@
   BMP.store = {
     load, save,
     get state() { return state; },
-    reset() { state = blank(); save(); },
-    /* Sicherung: ganzer Stand als Text (JSON) */
-    exportData() {
-      return JSON.stringify({ app: 'bm-trainer', version: 1, exported: new Date().toISOString(), state });
+    reset() { const pin = state.parentPin; state = blank(); if (pin) state.parentPin = pin; save(); }, // PIN bleibt
+    /* Sicherung: ganzer Stand als Text (JSON), mit Prüfsumme gegen Manipulation */
+    async exportData() {
+      const data = Object.assign({}, state); delete data.parentPin;
+      const body = JSON.stringify(data);
+      const sig = await sha256(body + ':' + ((state.parentPin && state.parentPin.hash) || ''));
+      return JSON.stringify({ app: 'bm-trainer', version: 2, exported: new Date().toISOString(), state: data, sig, pin: state.parentPin || null });
     },
-    importData(text) {
+    /* Liefert { ok, msg, needPin }. Ist auf diesem Gerät eine Eltern-PIN gesetzt und wurde die Sicherung
+       verändert (oder stammt sie von einem Gerät mit anderer PIN), ist die PIN nötig. */
+    async importData(text, pin) {
       let obj;
       try { obj = JSON.parse(String(text).trim()); } catch (e) {
         try { obj = JSON.parse(decodeURIComponent(escape(atob(String(text).trim())))); } catch (e2) { return { ok: false, msg: 'Das ist keine gültige Sicherung.' }; }
       }
       const data = obj && obj.app === 'bm-trainer' ? obj.state : obj;
       if (!data || typeof data !== 'object' || typeof data.topics !== 'object' || !Array.isArray(data.exams)) return { ok: false, msg: 'Die Sicherung ist unvollständig.' };
-      state = Object.assign(blank(), data);
+      const clean = Object.assign({}, data); delete clean.parentPin;
+      const devicePin = state.parentPin;
+      if (devicePin) {
+        const expected = await sha256(JSON.stringify(clean) + ':' + devicePin.hash);
+        const untouched = obj && obj.sig === expected;
+        if (!untouched) {
+          if (pin == null) return { ok: false, needPin: true, msg: 'Diese Sicherung wurde verändert oder stammt von einem anderen Gerät – bitte Eltern-PIN eingeben.' };
+          if (!(await checkPin(devicePin, pin))) return { ok: false, needPin: true, msg: 'Falsche PIN.' };
+        }
+      }
+      state = Object.assign(blank(), clean);
+      // PIN behalten (auf neuem Gerät die PIN aus der Sicherung übernehmen)
+      state.parentPin = devicePin || (obj && obj.pin) || undefined;
       save();
       return { ok: true };
     },
+    /* Eltern-PIN */
+    hasPin() { return !!state.parentPin; },
+    async setPin(pin) {
+      const salt = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      state.parentPin = { salt, hash: await sha256(salt + ':' + pin) };
+      save();
+    },
+    async verifyPin(pin) { return !!state.parentPin && checkPin(state.parentPin, pin); },
+    /* PIN vergessen: PIN wird entfernt, Lernkonto auf 0 – so bringt es keinen Vorteil */
+    forgetPin() { delete state.parentPin; state.points = 0; save(); },
     /* Browser bitten, die Daten nicht automatisch zu löschen */
     persist() {
       try { if (root.navigator && navigator.storage && navigator.storage.persist) return navigator.storage.persist(); } catch (e) { /* egal */ }

@@ -942,12 +942,30 @@
         <p id="bkmsg" class="hint" aria-live="polite"></p>
       </section>
       <h2>👪 Für Eltern</h2>
-      <section class="panel">
-        <details><summary>Lernkonto korrigieren (z. B. nach Datenverlust)</summary>
-          <label class="crit"><span>Kontostand in Lernfranken</span><input id="ptsfix" type="number" min="0" step="1" value="${st.points || 0}"></label>
-          <p class="muted small">Stufen: ${BMP.motiv.LEVELS.map(l => `${l.name} ab ${U.fmt(l.min, 0)}`).join(' · ')}</p>
-          <button class="btn ghost" id="ptsset">Kontostand setzen</button>
-        </details>
+      <section class="panel parent">
+        ${!store.hasPin() ? `
+          <p><b>🔒 Eltern-PIN festlegen</b></p>
+          <p class="muted small">Mit der PIN kann nur ein Elternteil den Kontostand ändern. Wähle 4–8 Ziffern, die Lina nicht kennt. Die PIN wird nur verschlüsselt auf diesem Gerät gespeichert.</p>
+          <label class="crit"><span>Neue PIN</span><input id="pin1" type="password" inputmode="numeric" autocomplete="new-password" maxlength="8"></label>
+          <label class="crit"><span>PIN wiederholen</span><input id="pin2" type="password" inputmode="numeric" autocomplete="new-password" maxlength="8"></label>
+          <button class="btn" id="pinset">PIN festlegen</button>`
+        : `
+          <details><summary>🔒 Lernkonto korrigieren (z. B. nach Datenverlust)</summary>
+            <label class="crit"><span>Kontostand in Lernfranken</span><input id="ptsfix" type="number" min="0" step="1" value="${st.points || 0}"></label>
+            <p class="muted small">Stufen: ${BMP.motiv.LEVELS.map(l => `${l.name} ab ${U.fmt(l.min, 0)}`).join(' · ')}</p>
+            <label class="crit"><span>Eltern-PIN</span><input id="pinchk" type="password" inputmode="numeric" autocomplete="off" maxlength="8"></label>
+            <button class="btn ghost" id="ptsset">Kontostand setzen</button>
+          </details>
+          <details><summary>PIN ändern</summary>
+            <label class="crit"><span>Bisherige PIN</span><input id="pinold" type="password" inputmode="numeric" autocomplete="off" maxlength="8"></label>
+            <label class="crit"><span>Neue PIN</span><input id="pinnew" type="password" inputmode="numeric" autocomplete="new-password" maxlength="8"></label>
+            <button class="btn ghost" id="pinchange">PIN ändern</button>
+          </details>
+          <details><summary>PIN vergessen?</summary>
+            <p class="small">Die PIN wird entfernt und das <b>Lernkonto auf 0 gesetzt</b> (so bringt es niemandem einen Vorteil). Statistik, Abzeichen und Fehlerheft bleiben erhalten. Danach kannst du eine neue PIN festlegen und den Kontostand korrigieren.</p>
+            <button class="btn warn" id="pinforget">PIN entfernen</button>
+          </details>`}
+        <p id="pinmsg" class="hint" aria-live="polite"></p>
       </section>
       <section class="panel">
         <button class="btn warn" id="reset">Fortschritt zurücksetzen</button>
@@ -966,8 +984,8 @@
     const msg = t => { $app.querySelector('#bkmsg').textContent = t; };
     const fname = () => 'bm-trainer-sicherung-' + store.today() + '.json';
     const markBackup = () => { st.lastBackup = Date.now(); store.save(); };
-    $app.querySelector('#bkfile').addEventListener('click', () => {
-      const blob = new Blob([store.exportData()], { type: 'application/json' });
+    $app.querySelector('#bkfile').addEventListener('click', async () => {
+      const blob = new Blob([await store.exportData()], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = fname();
       document.body.appendChild(a); a.click(); a.remove();
@@ -977,20 +995,26 @@
     const share = $app.querySelector('#bkshare');
     if (share) share.addEventListener('click', async () => {
       try {
-        const file = new File([store.exportData()], fname(), { type: 'application/json' });
+        const dump = await store.exportData();
+        const file = new File([dump], fname(), { type: 'application/json' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], title: 'BM-Trainer Sicherung' });
-        else await navigator.share({ title: 'BM-Trainer Sicherung', text: btoa(unescape(encodeURIComponent(store.exportData()))) });
+        else await navigator.share({ title: 'BM-Trainer Sicherung', text: btoa(unescape(encodeURIComponent(dump))) });
         markBackup(); msg('✓ Sicherung geteilt.');
       } catch (e) { msg('Teilen abgebrochen.'); }
     });
     $app.querySelector('#bkcopy').addEventListener('click', async () => {
-      const code = btoa(unescape(encodeURIComponent(store.exportData())));
+      const code = btoa(unescape(encodeURIComponent(await store.exportData())));
       try { await navigator.clipboard.writeText(code); markBackup(); msg('✓ Sicherungscode kopiert – füge ihn z. B. in eine Notiz oder Nachricht an dich selbst ein.'); }
       catch (e) { $app.querySelector('#bktext').value = code; $app.querySelector('.restore').open = true; msg('Kopieren nicht möglich – der Code steht im Feld unten, bitte manuell kopieren.'); }
     });
-    const doImport = text => {
+    const doImport = async text => {
       if (!confirm('Aktuellen Stand durch die Sicherung ersetzen?')) return;
-      const r = store.importData(text);
+      let r = await store.importData(text);
+      if (!r.ok && r.needPin) {
+        const pin = prompt(r.msg);
+        if (pin == null) return msg('Wiederherstellen abgebrochen.');
+        r = await store.importData(text, pin);
+      }
       if (r.ok) { msg('✓ Sicherung wiederhergestellt.'); updateTop(); setTimeout(progress, 600); } else msg('✗ ' + r.msg);
     };
     $app.querySelector('#bkin').addEventListener('change', e => {
@@ -1002,10 +1026,33 @@
       if (!t) { msg('Bitte zuerst eine Datei wählen oder den Code einfügen.'); return; }
       doImport(t);
     });
-    $app.querySelector('#ptsset').addEventListener('click', () => {
+    const pinMsg = t => { $app.querySelector('#pinmsg').textContent = t; };
+    const validPin = p => /^\d{4,8}$/.test(p);
+    const on = (id, fn) => { const el = $app.querySelector(id); if (el) el.addEventListener('click', fn); };
+    on('#pinset', async () => {
+      const a = $app.querySelector('#pin1').value.trim(), b = $app.querySelector('#pin2').value.trim();
+      if (!validPin(a)) return pinMsg('Die PIN muss aus 4–8 Ziffern bestehen.');
+      if (a !== b) return pinMsg('Die beiden PINs stimmen nicht überein.');
+      await store.setPin(a);
+      progress(); setTimeout(() => { const m = $app.querySelector('#pinmsg'); if (m) m.textContent = '✓ Eltern-PIN festgelegt.'; }, 50);
+    });
+    on('#ptsset', async () => {
+      const pin = $app.querySelector('#pinchk').value.trim();
+      if (!(await store.verifyPin(pin))) { $app.querySelector('#pinchk').value = ''; return pinMsg('✗ Falsche PIN.'); }
       const v = Math.max(0, Math.round(Number($app.querySelector('#ptsfix').value) || 0));
       if (!confirm(`Kontostand auf CHF ${U.fmt(v, 0)} setzen? Stufe: ${BMP.motiv.level(v).name}`)) return;
       st.points = v; store.save(); updateTop(); progress();
+    });
+    on('#pinchange', async () => {
+      const o = $app.querySelector('#pinold').value.trim(), n = $app.querySelector('#pinnew').value.trim();
+      if (!(await store.verifyPin(o))) return pinMsg('✗ Die bisherige PIN ist falsch.');
+      if (!validPin(n)) return pinMsg('Die neue PIN muss aus 4–8 Ziffern bestehen.');
+      await store.setPin(n); pinMsg('✓ PIN geändert.');
+      $app.querySelector('#pinold').value = $app.querySelector('#pinnew').value = '';
+    });
+    on('#pinforget', () => {
+      if (!confirm('PIN entfernen und Lernkonto auf 0 setzen?')) return;
+      store.forgetPin(); updateTop(); progress();
     });
     $app.querySelector('#reset').addEventListener('click', () => {
       if (confirm('Wirklich den ganzen Fortschritt (Statistik, Fehlerheft, Prüfungen, Entwürfe, Lernkonto) löschen? Tipp: vorher eine Sicherung herunterladen.')
